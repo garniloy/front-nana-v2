@@ -1,0 +1,71 @@
+.wrapper{
+    display: flex;
+    flex-direction: column;
+}
+.step-item{
+    display: flex;
+    gap: 0.4rem;
+}
+
+.step-indicator{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.cercle{
+    margin: 0;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    border: solid 1px black;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.line{
+    padding: 0;
+    margin: 0;
+    height: 5rem;
+    width: 0.1rem;
+    background-color: black;
+}
+
+.step-field{
+    padding-top: 8px;
+}
+
+
+/*sell form style*/
+.form{
+    display: flex;
+    flex-direction: row;
+}
+.right-form{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sell-summary-item{
+    display: flex;
+    justify-content: space-between;
+}
+.icon-name{
+    display: flex;
+    gap: 8px;
+}
+
+.details-header{
+    display: flex;
+    justify-content: space-between;
+    border: solid 1px black;
+}
+.row{
+    display: flex;
+}
+.fields{
+    height: 330px;
+    width: 330px;
+}
