@@ -1,6 +1,6 @@
 
 // url backend here
-const backendUrl = 'http://localhost:3000/crud/';
+const backendUrl = 'https://backend-nana-v2.onrender.com/crud/';
 
 // globale functions here
 
@@ -25,7 +25,7 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 
 */
 // create data in any table
-async function createDataToTable(table: string, fields: object) {
+async function createDataToTable(table:string,fields: object) {
 
     const response = await fetch(backendUrl + 'create/' + table, {
         method: 'POST',
@@ -49,6 +49,7 @@ import '../css/form.css'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useImmer } from 'use-immer';
+import OfficeSelector from './Office-selector';
 
 
 
@@ -58,9 +59,7 @@ const countries = [
   { code: "1", name: "USA" },
 ];
 
-function validatePhone(phone: string) {
-  return /^[0-9]{6,15}$/.test(phone);
-}
+
 
 function validateRequired(value: string) {
   return value.trim().length > 0;
@@ -80,9 +79,9 @@ export default function distributeur({onclose}: onCloseProps) {
   }, [connected, user, navigate]);
 
   const getInitialSeller = () => ({
-    id: '', name: '', phone: '', sexe: '',
+     id: '',name: '', phone: '', sexe: '',
     upline: '', office: '',
-    created_at: Date.now(),
+    created_at: 'now()',
   });
 
   const [newSeller, setnewSeller] = useImmer(getInitialSeller());
@@ -97,51 +96,68 @@ export default function distributeur({onclose}: onCloseProps) {
 
   const validate = () => {
     const newErrors: any = {};
+    
     if (!validateRequired(newSeller.id)) newErrors.id = "ID requis";
     if (!validateRequired(newSeller.name)) newErrors.name = "Nom requis";
     if (!validateRequired(newSeller.sexe)) newErrors.sexe = "Sexe requis";
     if (!validateRequired(newSeller.upline)) newErrors.upline = "Upline requis";
-    if (!validatePhone(newSeller.phone)) newErrors.phone = "Téléphone invalide";
-    if (!validateRequired(newSeller.office)) setnewSeller(dr => { dr.office = user.office });
+    if (!/^[0-9]+$/.test(newSeller.phone)) newErrors.phone = "Téléphone invalide";
+    if (!validateRequired(newSeller.office)) setnewSeller(dr => { dr.office = selectedOffice });
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
     setSuccess("");
-    setnewSeller(dr => { dr.created_at = Date.now(); dr.phone = theCnuntry + phoneNumber; });
+    setnewSeller(dr => { dr.phone = theCnuntry + phoneNumber; });
     if (!validate()) return;
     setLoading(true);
     try {
-      const data = await createDataToTable('seller', newSeller);
+      console.log(newSeller)
+      const data = await createDataToTable('seller',newSeller);
       if (data.success === false) throw new Error(data.message || "Error");
       setSuccess("Distributeur enregistré avec succès");
       resetSeller();
+      setnewSeller(dr => { dr.phone = '' });
     } catch (err: any) {
       setErrors({ global: err.message });
     } finally {
       setLoading(false);
+      setTimeout(() => setErrors({}), 3000);
+      setTimeout(() => setSuccess(''), 3000);
     }
   };
+  const [selectedOffice, setSelectedOffice] = useState('');
+  const showOfficeSelector =
+        user.role === 'superuser' || user.owner === true;
 
   return (
     <main
-      className="min-h-screen col align-center justify-center p-xl"
+      className="main col align-center justify-center p-xl"
       data-style="neuro"
       data-mode="light"
     >
-      <div className="surface col gap-lg" style={{ width: '100%', maxWidth: '32rem' }}>
-        <div className="">
+      <div className="surface col gap-lg" style={{ width: '100%', height:'100%', overflow:'auto' }}>
+        <div className="row gap-md align-center justify-between">
           <div className="col gap-xs">
             <h2 className="text-heading text-2xl">Nouveau distributeur</h2>
             <p className="text-body text-sm">Remplissez les informations du distributeur.</p>
           </div>
-          <button onClick={()=>{onclose?.(true)}}>back</button>
+          {showOfficeSelector && (
+              <OfficeSelector
+                  onOfficeSelect={(officeName) => {
+                      // FIX: no comma operator; two proper statements
+                      setSelectedOffice(officeName);
+                      
+                  }}
+              />
+          )}
+          <button className='btn' onClick={()=>{onclose?.(true)}}>back</button>
         </div>
 
         <div className="divider" />
 
-        {/* ID */}
+         {/* ID */}
         <div className="col gap-xs">
           <label className="text-label">Identifiant</label>
           <input className="input" placeholder="ID" value={newSeller.id}
@@ -222,7 +238,7 @@ export default function distributeur({onclose}: onCloseProps) {
         {/* Office */}
         <div className="col gap-xs">
           <label className="text-label">Bureau</label>
-          <input className="input" placeholder={user.office} value={newSeller.office}
+          <input disabled className="input" placeholder={selectedOffice} 
             onChange={(e) => setnewSeller(dr => { dr.office = e.target.value })} />
         </div>
 

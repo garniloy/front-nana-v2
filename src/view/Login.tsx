@@ -2,7 +2,7 @@ import { useState } from 'react';
 import '../css/login.css'
 import { useNavigate } from "react-router-dom";
 
-const backendUrl = 'http://localhost:3000'
+const backendUrl = 'https://backend-nana-v2.onrender.com'
 
 async function fetchUserData(id: string, password: string) {
     const response = await fetch(backendUrl+'/login', {
@@ -27,9 +27,13 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
 
         try {
             const response = await fetchUserData(id, password);
-            console.log(response);
+            console.log('response',response);
+            console.log('response',response.data);
 
             if (response.success === true && response.time === 86400000) {
+                localStorage.removeItem("connected");
+                localStorage.removeItem("user");
+
                 localStorage.setItem("connected", "true");
                 localStorage.setItem("user", JSON.stringify(response.data));
                 onLogin();

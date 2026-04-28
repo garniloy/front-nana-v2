@@ -17,7 +17,7 @@ export default function Appdash() {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const connected = localStorage.getItem("connected");
-    console.log(user)
+    
 
     
     if (!connected || user === "null") {

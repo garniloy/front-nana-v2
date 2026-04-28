@@ -1,5 +1,6 @@
-const backendUrl = 'http://localhost:3000/crud/';
+const backendUrl = 'https://backend-nana-v2.onrender.com/';
 // globale functions here
+
 
 /*   POSSIBLE FIELDS STRUCTURE 
 -- INSERT ONE ROW
@@ -24,7 +25,7 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 // create data in any table
 async function createDataToTable(table: string, fields: object) {
 
-    const response = await fetch(backendUrl + 'create/' + table, {
+    const response = await fetch(backendUrl + '/crud/create/' + table, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -35,6 +36,129 @@ async function createDataToTable(table: string, fields: object) {
     return data;
 }
 
+
+/*   POSSIBLE FIELDS STRUCTURE 
+
+-- Filtered + specific columns
+    {
+    fields: ['id', 'email', 'role'],
+    constraints: { role: 'admin', deleted_at: null },
+    };
+
+-- Single row
+    {
+        fields: ['id', 'email', 'role'],
+        constraints: { id: 42 },
+        fetch: 'one',
+    };
+
+-- With ordering + pagination
+    {
+    constraints: { active: true },
+    orderBy: { created_at: 'DESC' },   // or a string / string[]
+    limit: 20,
+    offset: 40,
+    };
+
+-- Advanced operator
+    {
+    constraints: { total: { op: '>', value: 500 } },
+    fetch: 'all',
+    };
+*/
+//get data with contraints
+const getDataFromTableWithConstraints = async (table:string, body:object) => {
+    const res = await fetch(backendUrl +  '/crud/getwith/' + table, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    console.log(data);
+    return data
+};
+
+
+/*   POSSIBLE FIELDS STRUCTURE 
+
+no fields, no constraints
+
+*/
+
+//get data without any contraints
+/*
+const getDataWithoutConstraints = async (table:string) => {
+    const res = await fetch(backendUrl + 'get/' + table, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+    });
+
+    const data = await res.json();
+    console.log(data);
+    return data
+};
+*/
+
+/*   POSSIBLE FIELDS STRUCTURE 
+-- Update by id  { id: 42 } or { id: 7, active: true }(complex where)     // WHERE -- to set in body 
+
+   { 
+        set : { role: 'admin' },
+        where : { id: 42 } 
+    } 
+
+-- Multiple SET fields + complex WHERE
+
+    { 
+        set : { price: 19.99, updated_at: new Date() },
+        where : { id: 42 } 
+    } 
+
+  
+// Get updated rows back
+
+    { 
+        set : { price: 19.99, updated_at: new Date() },
+        where : { id: 42 },
+        returning: true 
+    }
+
+*/
+//update data in any table
+
+
+/*   POSSIBLE FIELDS STRUCTURE 
+-- Delete by id
+    { 
+        contraints : {id: 99},
+        returning: false   // or true
+    };
+
+// Delete with operator
+    {
+        contraints : {created_at: { op: '<', value: '2024-01-01' }},
+        returning: false   // or true
+    };
+
+*/
+//delete data
+
+
+async function createSellData( fields: object) {
+
+    const response = await fetch('http://localhost:3000/sell' , {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(fields)
+    });
+    
+    const data = await response.json();
+    console.log('Sell creation response:', data);
+    return data;
+}
 
 /*   POSSIBLE FIELDS STRUCTURE 
 
@@ -346,157 +470,94 @@ const handlechangeview = ()=>{
 }
 
 useEffect(() => {
-  // get only prod_serv and stock
-  setProdServList([
-    {
-      type: "prod",
-      nom: "Laptop Dell XPS 13",
-      pr_stock: 650000,
-      pr_distr: 700000,
-      pr_clt: 750000,
-      pv: 820000,
-    },
-    {
-      type: "prod",
-      nom: "Wireless Mouse Logitech",
-      pr_stock: 8000,
-      pr_distr: 10000,
-      pr_clt: 12000,
-      pv: 15000,
-    },
-    {
-      type: "serv",
-      nom: "Computer Maintenance",
-      pr_stock: 0,
-      pr_distr: 5000,
-      pr_clt: 8000,
-      pv: 15000,
-    },
-    {
-      type: "serv",
-      nom: "Website Development",
-      pr_stock: 0,
-      pr_distr: 150000,
-      pr_clt: 200000,
-      pv: 300000,
-    },
-    {
-      type: "prod",
-      nom: "HP Laser Printer",
-      pr_stock: 90000,
-      pr_distr: 105000,
-      pr_clt: 120000,
-      pv: 140000,
-    },
-    {
-      type: "prod",
-      nom: "External Hard Drive 1TB",
-      pr_stock: 25000,
-      pr_distr: 30000,
-      pr_clt: 35000,
-      pv: 40000,
-    },
-    {
-      type: "serv",
-      nom: "Network Installation",
-      pr_stock: 0,
-      pr_distr: 50000,
-      pr_clt: 70000,
-      pv: 120000,
-    },
-  ]);
+  const fetchAll = async () => {
+    try {
+      const officeConstraint = user.owner || user.role === 'superuser' ? {office: selectedOffice} : { office: user.office };
 
-  setStock([
-    { name: "Laptop Dell XPS 13", qty: 5 },
-    { name: "Wireless Mouse Logitech", qty: 50 },
-    { name: "HP Laser Printer", qty: 8 },
-    { name: "External Hard Drive 1TB", qty: 20 },
-    { name: "Router TP-Link", qty: 15 },
-    { name: "Keyboard Mechanical", qty: 0 },
-  ]);
+      const [stockRes, prodServRes, sellersRes, clientsRes] = await Promise.all([
 
-  setSellers([
-    {
-      id: "S001",
-      name: "Jean Dupont",
-      sexe: "M",
-      phone: "670000001",
-      upline: "Regional Manager A",
-      office: "Douala",
-    },
-    {
-      id: "S002",
-      name: "Amina Bello",
-      sexe: "F",
-      phone: "670000002",
-      upline: "Regional Manager A",
-      office: "Douala",
-    },
-    {
-      id: "S003",
-      name: "Paul Ndzi",
-      sexe: "M",
-      phone: "670000003",
-      upline: "Regional Manager B",
-      office: "Yaoundé",
-    },
-    {
-      id: "S004",
-      name: "Esther Kone",
-      sexe: "F",
-      phone: "670000004",
-      upline: "Regional Manager B",
-      office: "Bafoussam",
-    },
-  ]);
+        getDataFromTableWithConstraints('stock', {
+          fields: ['name', 'qte'],
+          constraints: { ...officeConstraint },
+        }),
 
-  setClients([
-    {
-      id: "C001",
-      name: "Michael Johnson",
-      sexe: "M",
-      phone: "680000001",
-      seller: "S001",
-    },
-    {
-      id: "C002",
-      name: "Sarah Williams",
-      sexe: "F",
-      phone: "680000002",
-      seller: "S002",
-    },
-    {
-      id: "C003",
-      name: "David Ngono",
-      sexe: "M",
-      phone: "680000003",
-      seller: "S001",
-    },
-    {
-      id: "C004",
-      name: "Fatima Ali",
-      sexe: "F",
-      phone: "680000004",
-      seller: "S003",
-    },
-    {
-      id: "C005",
-      name: "Chris Brown",
-      sexe: "M",
-      phone: "680000005",
-      seller: "S004",
-    },
-    {
-      id: "C006",
-      name: "Linda Tchoumi",
-      sexe: "F",
-      phone: "680000006",
-      seller: "S002",
-    },
-  ]);
+        getDataFromTableWithConstraints('prod_serv', {
+          fields: ['nom', 'type', 'pr_stock', 'pr_distr', 'pr_clt', 'pv'],
+        }),
 
-  setLoading(false);
+        getDataFromTableWithConstraints('seller', {
+          fields: ['id', 'name', 'sexe', 'phone', 'upline', 'office'],
+          constraints: { is_deleted: false, ...officeConstraint },
+        }),
+
+        getDataFromTableWithConstraints('clients', {
+          fields: ['id', 'name', 'sexe', 'phone', 'seller'],
+          constraints: { ...officeConstraint },
+        }),
+
+      ]);
+
+      if (stockRes.success)    setStock(() => stockRes.list.map((s: { name: string; qte: number }) => ({ name: s.name, qty: s.qte })));
+      if (prodServRes.success) setProdServList(() => prodServRes.list);
+      if (sellersRes.success)  setSellers(() => sellersRes.list);
+      if (clientsRes.success)  setClients(() => clientsRes.list);
+
+    } catch (err) {
+      console.error('Failed to load initial data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAll();
 }, []);
+
+useEffect(() => {
+  setStock([]);
+  setProdServList([]);
+  setSellers([]);
+  setClients([]);
+  const fetchAll = async () => {
+    try {
+      const officeConstraint = user.owner || user.role === 'superuser' ? {office: selectedOffice} : { office: user.office };
+
+      const [stockRes, prodServRes, sellersRes, clientsRes] = await Promise.all([
+
+        getDataFromTableWithConstraints('stock', {
+          fields: ['name', 'qte'],
+          constraints: { ...officeConstraint },
+        }),
+
+        getDataFromTableWithConstraints('prod_serv', {
+          fields: ['nom', 'type', 'pr_stock', 'pr_distr', 'pr_clt', 'pv'],
+        }),
+
+        getDataFromTableWithConstraints('seller', {
+          fields: ['id', 'name', 'sexe', 'phone', 'upline', 'office'],
+          constraints: { is_deleted: false, ...officeConstraint },
+        }),
+
+        getDataFromTableWithConstraints('clients', {
+          fields: ['id', 'name', 'sexe', 'phone', 'seller'],
+          constraints: { ...officeConstraint },
+        }),
+
+      ]);
+
+      if (stockRes.success)    setStock(() => stockRes.list.map((s: { name: string; qte: number }) => ({ name: s.name, qty: s.qte })));
+      if (prodServRes.success) setProdServList(() => prodServRes.list);
+      if (sellersRes.success)  setSellers(() => sellersRes.list);
+      if (clientsRes.success)  setClients(() => clientsRes.list);
+
+    } catch (err) {
+      console.error('Failed to load initial data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAll();
+}, [selectedOffice]);
   
     // ── Step tracker logic ──
     const steps: Step[] = [
@@ -749,6 +810,7 @@ useEffect(() => {
         const activity = {
           id: sell.id,
           seller: sell.seller,
+          clientKind: sell.clientKind,
           client: sell.client,
           payment_mode: sell.payment_mode,
           total_amount: sell.total_amount,
@@ -764,18 +826,23 @@ useEffect(() => {
         console.log("Submitting activity:", activity, actualSell); //......
 
         const field = {
+          office : selectedOffice|| sell.office,
           sell : actualSell,
           activity : activity
         }
 
-        await createDataToTable("activity", field); // ADAPT TO THE BACKEND ROUTE
+        const response = await createSellData( field);
+
+        if (!response || !response.success) {
+          throw new Error(response.message);
+        }
   
         for (const [name, qty] of sell.details.alements) {
           const ps = prodServList.find((p) => p.nom === name);
           if (ps?.type !== "prod") continue;
           const current = getStockQty(name);
           await createDataToTable("stock_move", {
-            element: name, qty, type: "OUT", date: now, office: sell.office,
+            element: name, qty, type: "OUT", date: now, office: user.office,
           });
           setStock((d) => {
             const s = d.find((st) => st.name === name);

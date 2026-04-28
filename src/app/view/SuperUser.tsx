@@ -4,7 +4,7 @@
 // ---------------------------------------
 
 // url backend here
-const backendUrl = 'http://localhost:3000/crud/';
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 // globale functions here
 
@@ -31,7 +31,7 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 // create data in any table
 async function createDataToTable(table: string, fields: object) {
 
-    const response = await fetch(backendUrl + 'create/' + table, {
+    const response = await fetch(backendUrl + '/crud/create/' + table, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -74,7 +74,7 @@ async function createDataToTable(table: string, fields: object) {
 */
 //get data with contraints
 const getDataFromTableWithConstraints = async (table:string, body:object) => {
-    const res = await fetch(backendUrl +  'getwith/' + table, {
+    const res = await fetch(backendUrl +  '/crud/getwith/' + table, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -134,7 +134,7 @@ const getDataWithoutConstraints = async (table:string) => {
 //update data in any table
 async function updateDataToTable(table: string, fields: object) {
 
-    const response = await fetch(backendUrl + 'update/' + table, {
+    const response = await fetch(backendUrl + '/crud/update/' + table, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -161,7 +161,7 @@ async function updateDataToTable(table: string, fields: object) {
 */
 //delete data
 async function deleteDataFromTable(table:string, fields: object) {
-    const response = await fetch(backendUrl + 'delete/' + table, {
+    const response = await fetch(backendUrl + '/crud/delete/' + table, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json'
@@ -853,8 +853,9 @@ export default function sudo(){
 
             const field = {
                 fields: ['id', 'name'],
-                constraints: { owner: user.owner ? user.id :user.promoted_by, is_deleted: false }
+                constraints: { owner: user.promoted_by, is_deleted: false }
             };
+            console.log(user.promoted_by)
             const fetchdata = async ()=>{
                 try {
                     const data = await getDataFromTableWithConstraints('office', field)
@@ -1019,10 +1020,10 @@ export default function sudo(){
 
         const field = {
                 fields: ['id', 'name', 'phone', 'office', 'role', 'promoted_by'],
-                constraints: { is_deleted: false },
+                constraints: { is_deleted: false, promoted_by: user.promoted_by },
                 or: [
                     { office: curentOffice },
-                    { office: '*' }
+                    {office: '*'}
                 ]
         };
 
@@ -1340,7 +1341,7 @@ export default function sudo(){
                                                 <div className="col gap-xs">
                                                     <label className="text-label">Mot de passe</label>
                                                     <input className="input" type="text"
-                                                        placeholder={manager.password}
+                                                        placeholder='Nouveau mot de passe'
                                                         value={modifyfManagerInfo.password}
                                                         onChange={(e) => setmodifyManagerInfo(draft => { draft.password = e.target.value })} />
                                                 </div>

@@ -1,6 +1,6 @@
 
 // url backend here
-const backendUrl = 'http://localhost:3000/crud/';
+const backendUrl = 'https://backend-nana-v2.onrender.com/crud/';
 
 // globale functions here
 
@@ -68,7 +68,7 @@ async function createDataToTable(table: string, fields: object) {
     };
 */
 //get data with contraints
-const getDataFromTableWithConstraints = async (table:string, body:object) => {
+/*const getDataFromTableWithConstraints = async (table:string, body:object) => {
     const res = await fetch(backendUrl +  'getwith/' + table, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,7 +79,50 @@ const getDataFromTableWithConstraints = async (table:string, body:object) => {
     console.log(data);
     return data
 };
+*/
 
+/* TAGS FOR LATER
+
+{Tags }
+        <div className="col gap-sm">
+          <label className="text-label">Tags maladie</label>
+
+          {Added tags }
+          <div className="surface-inset" style={{ minHeight: '3rem', padding: '0.5rem' }}>
+            {!tagAdded
+              ? <p className="text-body text-sm">Aucun tag ajouté</p>
+              : <div className="row wrap gap-xs">
+                  {newClient.tags.map((t, i) => (
+                    <span
+                      key={i}
+                      className="badge badge-brand pointer"
+                      onClick={() => setnewClient(dr => { dr.tags.splice(i, 1) })}
+                    >
+                      {t} ✕
+                    </span>
+                  ))}
+                </div>
+            }
+          </div>
+
+          { Available tags }
+          
+        </div>
+<div className="row wrap gap-xs">
+            {!TagAvaileble
+              ? <p className="text-body text-sm">Aucun tag disponible</p>
+              : tag.tags.map((t, i) => (
+                  <span
+                    key={i}
+                    className="badge badge-neutral pointer"
+                    onClick={() => setnewClient(dr => { dr.tags.push(t) })}
+                  >
+                    {t}
+                  </span>
+                ))
+            }
+          </div>
+*/
 // global actions
 const user = JSON.parse(localStorage.getItem("user") || "null");
 const connected = localStorage.getItem("connected");
@@ -90,6 +133,7 @@ import '../css/form.css'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useImmer } from 'use-immer';
+import OfficeSelector from './Office-selector';
 
 
 const countries = [
@@ -98,9 +142,7 @@ const countries = [
   { code: "1", name: "USA" },
 ];
 
-function validatePhone(phone: string) {
-  return /^[0-9]{6,15}$/.test(phone);
-}
+
 
 function validateRequired(value: string) {
   return value.trim().length > 0;
@@ -119,7 +161,7 @@ export default function client({onclose}: onCloseProps) {
     }
   }, [connected, user, navigate]);
 
-  useEffect(() => {
+  /*useEffect(() => {
     const field = { fields: ['nom'] };
     const getTags = async () => {
       const data = await getDataFromTableWithConstraints('tags', field);
@@ -131,24 +173,25 @@ export default function client({onclose}: onCloseProps) {
     try { getTags(); } catch (error) {
       throw new Error("Impossible de récupérer les tags maladie");
     }
-  }, []);
-
+  }, []);*/
+//tags: [] as string[],
   const getInitialClient = () => ({
-    id: '', name: '', phone: '', sexe: '',
+     name: '', phone: '', sexe: '',
      office: '', age: "",
-    vendeur: "", tags: [] as string[],
-    created_at: Date.now(),
+    vendeur: "", 
+    created_at: 'now()',
   });
 
   const [newClient, setnewClient] = useImmer(getInitialClient());
   const resetClient = () => setnewClient(getInitialClient());
+  const [selectedOffice, setSelectedOffice] = useState('');
 
-  const [tag, setTag] = useImmer({
+  /*const [tag, setTag] = useImmer({
     tags: ["disbet", "palu", "faiblesse sexuelle"] as string[]
-  });
+  });*/
 
-  const TagAvaileble = tag.tags.length > 0;
-  const tagAdded = newClient.tags.length > 0;
+  //const TagAvaileble = tag.tags.length > 0;
+  //const tagAdded = newClient.tags.length > 0;
 
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
@@ -159,31 +202,41 @@ export default function client({onclose}: onCloseProps) {
 
   const validate = () => {
     const newErrors: any = {};
-    if (!validateRequired(newClient.id)) newErrors.id = "ID requis";
+    
     if (!validateRequired(newClient.name)) newErrors.name = "Nom requis";
-    if (!validatePhone(newClient.phone)) newErrors.phone = "Téléphone invalide";
-    if (!validateRequired(newClient.office)) setnewClient(dr => { dr.office = user.office });
+    if (!/^[0-9]+$/.test(newClient.phone)) newErrors.phone = "Téléphone invalide";
+    if (!validateRequired(newClient.office)) setnewClient(dr => { dr.office = selectedOffice });
     if (!newClient.age || isNaN(Number(newClient.age))) newErrors.age = "Âge invalide";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+  const showOfficeSelector =
+        user.role === 'superuser' || user.owner === true;
 
-  const handleSubmit = async () => {
+  
+  
+    const handleSubmit = async () => {
     setSuccess("");
-    setnewClient(dr => { dr.created_at = Date.now(); dr.phone = theCnuntry + phoneNumber; });
+    setnewClient(dr => { dr.phone = theCnuntry + phoneNumber;  });
     if (!validate()) return;
     setLoading(true);
     try {
-      const data = await createDataToTable('seller', newClient);
+      
+      const data = await createDataToTable('client', newClient);
       if (data.success === false) throw new Error(data.message || "Error");
       setSuccess("Client enregistré avec succès");
       resetClient();
+      setnewClient(dr => { dr.phone = '' });
     } catch (err: any) {
       setErrors({ global: err.message });
     } finally {
       setLoading(false);
+      setTimeout(() => setErrors({}), 3000);
+      setTimeout(() => setSuccess(''), 3000);
     }
   };
+
+  
 
   return (
     <main
@@ -192,23 +245,26 @@ export default function client({onclose}: onCloseProps) {
       data-mode="light"
     >
       <div className="surface col gap-lg" style={{ width: '100%', height:'100%', overflow:'auto' }}>
-        <div className="">
+        <div className="row align-center justify-between">
           <div className="col gap-xs">
             <h2 className="text-heading text-2xl">Nouveau client</h2>
             <p className="text-body text-sm">Remplissez les informations du client.</p>
           </div>
-          <button onClick={()=>{onclose?.(true)}}>back</button>
+          {showOfficeSelector && (
+              <OfficeSelector
+                  onOfficeSelect={(officeName) => {
+                      // FIX: no comma operator; two proper statements
+                      setSelectedOffice(officeName);
+                      console.log('selected office', officeName);
+                  }}
+              />
+          )}
+          <button className='btn' onClick={()=>{onclose?.(true)}}>back</button>
         </div>
 
         <div className="divider" />
 
-        {/* ID */}
-        <div className="col gap-xs">
-          <label className="text-label">Identifiant</label>
-          <input className="input" placeholder="ID" value={newClient.id}
-            onChange={(e) => setnewClient(dr => { dr.id = e.target.value })} />
-          {errors.id && <span className="badge badge-danger">{errors.id}</span>}
-        </div>
+        
 
         {/* Name */}
         <div className="col gap-xs">
@@ -279,44 +335,7 @@ export default function client({onclose}: onCloseProps) {
           {errors.age && <span className="badge badge-danger">{errors.age}</span>}
         </div>
 
-        {/* Tags */}
-        <div className="col gap-sm">
-          <label className="text-label">Tags maladie</label>
-
-          {/* Added tags */}
-          <div className="surface-inset" style={{ minHeight: '3rem', padding: '0.5rem' }}>
-            {!tagAdded
-              ? <p className="text-body text-sm">Aucun tag ajouté</p>
-              : <div className="row wrap gap-xs">
-                  {newClient.tags.map((t, i) => (
-                    <span
-                      key={i}
-                      className="badge badge-brand pointer"
-                      onClick={() => setnewClient(dr => { dr.tags.splice(i, 1) })}
-                    >
-                      {t} ✕
-                    </span>
-                  ))}
-                </div>
-            }
-          </div>
-
-          {/* Available tags */}
-          <div className="row wrap gap-xs">
-            {!TagAvaileble
-              ? <p className="text-body text-sm">Aucun tag disponible</p>
-              : tag.tags.map((t, i) => (
-                  <span
-                    key={i}
-                    className="badge badge-neutral pointer"
-                    onClick={() => setnewClient(dr => { dr.tags.push(t) })}
-                  >
-                    {t}
-                  </span>
-                ))
-            }
-          </div>
-        </div>
+        
 
         {/* Vendeur */}
         <div className="col gap-xs">
@@ -328,7 +347,7 @@ export default function client({onclose}: onCloseProps) {
         {/* Office */}
         <div className="col gap-xs">
           <label className="text-label">Bureau</label>
-          <input className="input" placeholder={user.office} value={newClient.office}
+          <input disabled  className="input"  placeholder={selectedOffice} value={newClient.office}
             onChange={(e) => setnewClient(dr => { dr.office = e.target.value })} />
         </div>
 

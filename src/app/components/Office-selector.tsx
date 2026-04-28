@@ -1,158 +1,130 @@
-// url backend here
-const backendUrl = 'http://localhost:3000/crud/';
+const backendUrl = 'https://backend-nana-v2.onrender.com/crud/';
 
-// globale functions here
-
-
-/*   POSSIBLE FIELDS STRUCTURE 
-
--- Filtered + specific columns
-    {
-    fields: ['id', 'email', 'role'],
-    constraints: { role: 'admin', deleted_at: null },
-    };
-
--- Single row
-    {
-        fields: ['id', 'email', 'role'],
-        constraints: { id: 42 },
-        fetch: 'one',
-    };
-
--- With ordering + pagination
-    {
-    constraints: { active: true },
-    orderBy: { created_at: 'DESC' },   // or a string / string[]
-    limit: 20,
-    offset: 40,
-    };
-
--- Advanced operator
-    {
-    constraints: { total: { op: '>', value: 500 } },
-    fetch: 'all',
-    };
-*/
-//get data with contraints
-const getDataFromTableWithConstraints = async (table:string, body:object) => {
-    const res = await fetch(backendUrl +  'getwith/' + table, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+const getDataFromTableWithConstraints = async (table: string, body: object) => {
+    const res = await fetch(backendUrl + 'getwith/' + table, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-
     const data = await res.json();
     console.log(data);
-    return data
+    return data;
 };
 
+const user = JSON.parse(localStorage.getItem('user') || 'null');
+const connected = localStorage.getItem('connected');
 
+type Office = {
+    id: number;
+    name: string;
+};
 
-// global actions
-const user = JSON.parse(localStorage.getItem("user") || "null");
-const connected = localStorage.getItem("connected");
-
-// TYPES
-    type Office = {
-        id: number;
-        name: string
-    };
-
-    type OfficeSelectorProps = {
+type OfficeSelectorProps = {
     offices?: Office[];
     gave?: boolean;
     onOfficeSelect?: (officeName: string) => void;
-    };
-// imports
-import '../css/sudo.css'
-import { useState, useEffect } from 'react'
+};
+
+import '../css/sudo.css';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// main function
 export default function OfficeSelector({
-                                            offices = [],
-                                            gave = false,
-                                            onOfficeSelect}: OfficeSelectorProps) {
-
-    const navigate = useNavigate()
+    offices = [],
+    gave = false,
+    onOfficeSelect,
+}: OfficeSelectorProps) {
+    const navigate = useNavigate();
     const [officeList, setOffices] = useState<Office[]>([]);
     const [selectedOffice, setSelectedOffice] = useState('');
     const [error, setError] = useState('');
 
+    // Redirect if not connected
     useEffect(() => {
-        if (gave === true) {
-            setOffices(offices);
-        }else{
-            const field = {
-                fields: ['id', 'name'],
-                constraints: { owner: user.owner ? user.id :user.promoted_by, is_deleted: false }
-            };
-            const fetchdata = async ()=>{
-                try {
-                    const data = await getDataFromTableWithConstraints('office', field)
-                    console.log(data)
-                    if (data.success === true) {
-                        const alloffices = data.list;
-                        console.log(alloffices)
+        if (!connected || !user) {
+            localStorage.removeItem('user');
+            localStorage.removeItem('connected');
+            navigate('/login');
+        }
+    }, []);
 
-                        // COMPLEMENTED: check fetched offices array, not existing state
-                        if (alloffices.length > 0) {
-                            setOffices(alloffices);
-                        }else{
-                            setError('Aucun bureau disponible')
-                        }
-                    }else{
-                        
-                        setError('Un proble est survenu')
+    // Case 1: offices provided by parent — sync whenever the prop changes.
+    // `offices` is an array prop so its reference is stable as long as the parent
+    // doesn't re-create it inline (e.g. gave={true} offices={myStateArray} is fine;
+    // gave={true} offices={[...]} literal would still loop — that's the caller's responsibility).
+    useEffect(() => {
+        if (gave !== true) return;
+        setOffices(offices);
+    }, [gave, offices]);
+
+    // Case 2: fetch from API — runs once on mount only.
+    // We intentionally omit `gave` from deps: it is a mount-time decision and
+    // cannot change without unmounting the component anyway.
+    useEffect(() => {
+        if (gave === true) return;
+
+        const field = {
+            fields: ['id', 'name'],
+            constraints: {
+                owner: user.owner ? user.id : user.promoted_by,
+                is_deleted: false,
+            },
+        };
+
+        const fetchdata = async () => {
+            try {
+                const data = await getDataFromTableWithConstraints('office', field);
+                if (data.success === true) {
+                    if (data.list.length > 0) {
+                        setOffices(data.list);
+                    } else {
+                        setError('Aucun bureau disponible');
                     }
-                } catch (error) {
-                    
-                    setError('Un proble est survenu')
+                } else {
+                    setError('Un problème est survenu');
                 }
-                
-                
+            } catch {
+                setError('Un problème est survenu');
             }
+        };
 
-            fetchdata();
-            
-        }
-    },[]);
+        fetchdata();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(()=>{
-        if (officeList.length > 0) {
-            setSelectedOffice(officeList[0].name);
-        }
-        onOfficeSelect?.(selectedOffice);
-
-    }, [officeList]);
-
-    // Redirect
+    // Auto-select the first office and notify the parent whenever the list is (re)loaded
     useEffect(() => {
-    if (!connected || !user) {
-        localStorage.removeItem("user");
-        localStorage.removeItem("connected");
-        navigate("/login");
-    }
-    }, [connected, user, navigate]);
+        if (officeList.length === 0) return;
+        const firstName = officeList[0].name;
+        setSelectedOffice(firstName);
+        // Use firstName directly — reading selectedOffice here would be a stale closure
+        onOfficeSelect?.(firstName);
+    }, [officeList]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // FLOW --- > opening [] -> set view ; react[setview] -> fetch related data : office-manager view (when office able, set first item as selected office, [selectedoffice]-> get managers...), charge-goal view(fetch charge, cashout and goals, display and manage)
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const name = e.target.value;
+        setSelectedOffice(name);
+        onOfficeSelect?.(name);
+    };
 
-    
-
-   
-
-    return(
-        <div className='btn'>
+    return (
+        <div className="btn">
             {!error && (
                 <div className="list">
-                    <select name="select-office" id="select-office">
-                        {officeList.map((office:Office)=>(<option className={selectedOffice === office.name ? "selected" : ""} key={office.id} value={office.name} onClick={()=>{setSelectedOffice(office.name)}}>{office.name}</option>))}
+                    <select
+                        name="select-office"
+                        id="select-office"
+                        value={selectedOffice}
+                        onChange={handleChange}
+                    >
+                        {officeList.map((office: Office) => (
+                            <option key={office.id} value={office.name}>
+                                {office.name}
+                            </option>
+                        ))}
                     </select>
-                
-            </div>
+                </div>
             )}
-            {error &&<p>{error}</p>}
+            {error && <p>{error}</p>}
         </div>
-        
-    )
+    );
 }

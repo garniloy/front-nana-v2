@@ -1,5 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 
+const backendUrl = 'http://localhost:3000';
+
+const getDataFromTableWithConstraints = async (table: string, body: object) => {
+  console.log(table, body);
+
+    const res = await fetch(backendUrl + '/crud/getwith/' + table, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    
+    return data;
+};
+
+const user = JSON.parse(localStorage.getItem('user') || 'null');
+
 type ActivityDetail = {
   nb_prod: number;
   nb_serv: number;
@@ -11,6 +28,7 @@ type Activity = {
   seller: string;
   client: string;
   payment_mode: string;
+  clientKind: string;
   total_amount: number;
   total_benefice: number;
   office: string;
@@ -71,10 +89,13 @@ export default function Bills() {
   useEffect(() => {
     async function fetchActivities() {
       setLoading(true);
+      const field = { 
+        contraints: { office: user.office }
+       };
       try {
-        const res = await fetch('http://localhost:3000/activities');
-        const data = await res.json();
-        setActivities(data.list ?? data ?? []);
+        const res = await getDataFromTableWithConstraints('activity', field);
+        console.log(res);
+        setActivities(res.list ?? res ?? []);
       } catch {
         setError('Impossible de charger les factures.');
       } finally {
@@ -92,8 +113,9 @@ export default function Bills() {
   async function downloadBill(activity: Activity) {
     if (downloading) return;
     setDownloading(activity.id);
+    
     try {
-      const res = await fetch(`http://localhost:3000/bill/download/${activity.id}`);
+      const res = await fetch(`http://localhost:3000/bill/download/${activity.clientKind}/${activity.id}`);
       if (!res.ok) throw new Error('Échec du téléchargement');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
