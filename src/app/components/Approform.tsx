@@ -55,6 +55,7 @@ export default function Appro({ onclose }: onCloseProps) {
     const [showConfirm, setShowConfirm] = useState(false);
     const [highlighted, setHighlighted] = useState<string[]>([]);
     const [selectedOffice, setSelectedOffice] = useState('');
+    const [errors, setErrors] = useImmer('');
 
     // FIX: boolean, not a function call in JSX
     const showOfficeSelector =
@@ -84,7 +85,7 @@ export default function Appro({ onclose }: onCloseProps) {
                 // FIX: replace content, don't push on top of leftovers
                 setStockActuel(() => data.list);
             } catch (error) {
-                console.error(error);
+                setErrors('Erreur lors du chargement du stock : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
             } finally {
                 setLoading(false);
             }
@@ -114,12 +115,11 @@ export default function Appro({ onclose }: onCloseProps) {
     const submitAppro = async () => {
         setSubmitting(true);
         try {
-            console.log(approList)
             // FIX: use selectedOffice (reflects the office picker), not the stale user.office
             const appro = await createDataToTable({
                 approList
             });
-            if (!appro.success) {
+            if (appro.success) {
                 setStockActuel((draft) => {
                     approList.forEach((a) => {
                         const item = draft.find((p) => p.name === a.name);
@@ -131,13 +131,16 @@ export default function Appro({ onclose }: onCloseProps) {
                 setShowConfirm(false);
                 setTimeout(() => setHighlighted([]), 2000);
             }else{
-                console.error('Erreur lors de l\'appro');
+                setErrors('Erreur lors de l\'approvisionnement : ' + (appro.message || 'Erreur inconnue'));
             }
             
         } catch (error) {
-            console.error(error);
+            setErrors('Erreur lors du chargement du stock : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
         } finally {
             setSubmitting(false);
+            setTimeout(() => {
+                setErrors('');
+            }, 3000);
         }
     };
 
@@ -150,6 +153,15 @@ export default function Appro({ onclose }: onCloseProps) {
     return (
         <main className="main" data-style="neuro" data-mode="light">
             <div className="surface col gap-sm" style={{ width: '100%' }}>
+                {/* ERROR TOAST */}
+                {errors && (
+                    <div
+                        className="row align-center justify-center"
+                        style={{ position: 'fixed', bottom: '4rem', left: '60%', transform: 'translateX(-50%)', zIndex: 800 }}
+                    >
+                        <span className="badge badge-danger">{errors}</span>
+                    </div>
+                )}
 
                 {/* HEADER */}
                 <div className="row align-center justify-between">

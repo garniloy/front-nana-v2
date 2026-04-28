@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import '../css/form.css'
 
 // ── Backend helpers ───────────────────────────────────────────────────────────
 const backendUrl = 'https://backend-nana-v2.onrender.com';
@@ -623,102 +624,104 @@ export default function DataViewer() {
 
   return (
     <main
-      className="col"
+      className="main "
       data-style="neuro"
       data-mode="light"
-      style={{ minHeight: '100dvh', padding: 24, gap: 0 }}
+      style={{ height:'100%', display: 'flex', padding: '1.5rem', gap: 0 , overflow: 'auto'}}
     >
-      {/* Title */}
-      <div className="col gap-xs" style={{ marginBottom: 20 }}>
-        <h1 className="text-heading text-2xl">Base de données</h1>
-        <p className="text-body text-sm">
-          {isSuperUser ? 'Vue globale — tous les bureaux' : `Bureau : ${user?.office ?? '—'}`}
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div
-        className="surface"
-        style={{ padding: 0, borderRadius: '20px 20px 0 0', overflow: 'hidden', flexShrink: 0 }}
-      >
-        <div
-          style={{
-            display: 'flex', overflowX: 'auto', gap: 0,
-            borderBottom: '2px solid var(--nm-dark)',
-          }}
-        >
-          {TABLES.map((t, i) => {
-            const active = i === activeIdx;
-            return (
-              <button
-                key={t.name}
-                onClick={() => handleTab(i)}
-                style={{
-                  padding: '14px 20px',
-                  fontSize: '0.8rem',
-                  fontWeight: active ? 700 : 500,
-                  whiteSpace: 'nowrap',
-                  color: active ? 'var(--nm-brand)' : 'var(--nm-text)',
-                  background: active
-                    ? 'var(--nm-bg)'
-                    : 'transparent',
-                  boxShadow: active
-                    ? 'inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light)'
-                    : 'none',
-                  borderBottom: active ? '2px solid var(--nm-brand)' : '2px solid transparent',
-                  transition: 'all 0.18s',
-                  border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                {t.label}
-                {!t.crud && (
-                  <span style={{
-                    fontSize: '0.6rem', padding: '1px 5px',
-                    borderRadius: 9999,
-                    background: 'var(--nm-dark)',
-                    color: 'var(--nm-text)',
-                    fontWeight: 600,
-                    letterSpacing: '0.05em',
-                  }}>
-                    RO
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Panels — render all mounted ones, hide inactive (preserves state & avoids refetch) */}
-      <div
-        className="surface"
-        style={{
-          borderRadius: '0 0 20px 20px', padding: 20,
-          flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-        }}
-      >
-        {TABLES.map((t, i) =>
-          mounted.has(i) ? (
-            <div
-              key={t.name}
-              style={{
-                display: i === activeIdx ? 'flex' : 'none',
-                flexDirection: 'column',
-                flex: 1,
-                minHeight: 0,
-                height: '100%',
-              }}
-            >
-              <TablePanel table={t} />
+        <div className="surface col gap-sm" style={{ width: '100%' }}>
+            {/* Title */}
+            <div className="col " style={{ marginBottom: 20 }}>
+                <h1 className="text-heading text-2xl">Base de données</h1>
+                <p className="text-body text-sm">
+                {isSuperUser ? 'Vue globale — tous les bureaux' : `Bureau : ${user?.office ?? '—'}`}
+                </p>
             </div>
-          ) : null
-        )}
-      </div>
+
+            {/* Tabs */}
+            <div
+                className="surface"
+                style={{ padding: 0,height: '100%', borderRadius: '20px 20px 0 0', overflow: 'auto', flexShrink: 0 }}
+            >
+                <div
+                style={{
+                    display: 'flex', overflowX: 'auto', gap: 0,
+                    borderBottom: '2px solid var(--nm-dark)',
+                }}
+                >
+                {TABLES.map((t, i) => {
+                    const active = i === activeIdx;
+                    return (
+                    <button
+                        key={t.name}
+                        onClick={() => handleTab(i)}
+                        style={{
+                        padding: '14px 20px',
+                        fontSize: '0.8rem',
+                        fontWeight: active ? 700 : 500,
+                        whiteSpace: 'nowrap',
+                        color: active ? 'var(--nm-brand)' : 'var(--nm-text)',
+                        background: active
+                            ? 'var(--nm-bg)'
+                            : 'transparent',
+                        boxShadow: active
+                            ? 'inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light)'
+                            : 'none',
+                        borderBottom: active ? '2px solid var(--nm-brand)' : '2px solid transparent',
+                        transition: 'all 0.18s',
+                        border: 'none',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        }}
+                    >
+                        {t.label}
+                        {!t.crud && (
+                        <span style={{
+                            fontSize: '0.6rem', padding: '1px 5px',
+                            borderRadius: 9999,
+                            background: 'var(--nm-dark)',
+                            color: 'var(--nm-text)',
+                            fontWeight: 600,
+                            letterSpacing: '0.05em',
+                        }}>
+                            RO
+                        </span>
+                        )}
+                    </button>
+                    );
+                })}
+                </div>
+            </div>
+
+            {/* Panels — render all mounted ones, hide inactive (preserves state & avoids refetch) */}
+            <div
+                className="surface"
+                style={{
+                borderRadius: '0 0 20px 20px', padding: 8,maxHeight:'18rem',overflow: 'auto',
+                flex: 1, height: '100%', display: 'flex', flexDirection: 'column',
+                }}
+            >
+                {TABLES.map((t, i) =>
+                mounted.has(i) ? (
+                    <div
+                    key={t.name}
+                    style={{
+                        display: i === activeIdx ? 'flex' : 'none',
+                        flexDirection: 'column',
+                        flex: 1,
+                        minHeight: 0,
+                        height: '100%',
+                    }}
+                    >
+                    <TablePanel table={t} />
+                    </div>
+                ) : null
+                )}
+            </div>
+        </div>
     </main>
   );
 }
