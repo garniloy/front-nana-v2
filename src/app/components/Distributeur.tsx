@@ -96,13 +96,12 @@ export default function distributeur({onclose}: onCloseProps) {
 
   const validate = () => {
     const newErrors: any = {};
-    
+    if(newSeller.phone.length  <= 8 || isNaN(Number(newSeller.phone))) newErrors.phone = "Numéro de téléphone invalide";
     if (!validateRequired(newSeller.id)) newErrors.id = "ID requis";
     if (!validateRequired(newSeller.name)) newErrors.name = "Nom requis";
     if (!validateRequired(newSeller.sexe)) newErrors.sexe = "Sexe requis";
     if (!validateRequired(newSeller.upline)) newErrors.upline = "Upline requis";
-    if (!/^[0-9]+$/.test(newSeller.phone)) newErrors.phone = "Téléphone invalide";
-    if (!validateRequired(newSeller.office)) setnewSeller(dr => { dr.office = selectedOffice });
+    if (!validateRequired(newSeller.office)) setnewSeller(dr => { dr.office = user.owner ? selectedOffice : user.office; });
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };

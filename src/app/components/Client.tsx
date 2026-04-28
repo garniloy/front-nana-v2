@@ -203,9 +203,9 @@ export default function client({onclose}: onCloseProps) {
   const validate = () => {
     const newErrors: any = {};
     
-    if (!validateRequired(newClient.name)) newErrors.name = "Nom requis";
-    if (!/^[0-9]+$/.test(newClient.phone)) newErrors.phone = "Téléphone invalide";
-    if (!validateRequired(newClient.office)) setnewClient(dr => { dr.office = selectedOffice });
+    if (!validateRequired(newClient.name)) setnewClient(dr => { dr.name = user.promoted_by });
+    if(newClient.phone.length  <= 8 || isNaN(Number(newClient.phone))) newErrors.phone = "Numéro de téléphone invalide";
+    if (!validateRequired(newClient.office)) setnewClient(dr => { dr.office = user.owner ? selectedOffice : user.office; });
     if (!newClient.age || isNaN(Number(newClient.age))) newErrors.age = "Âge invalide";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

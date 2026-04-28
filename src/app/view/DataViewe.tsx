@@ -73,7 +73,7 @@ const TABLES: TableDef[] = [
     ],
   },
   {
-    name: 'approvisionnement', label: 'Appros', crud: false, pkField: 'id', officeField: 'office',
+    name: 'appro', label: 'Approvisionnement', crud: false, pkField: 'id', officeField: 'office',
     columns: [
       { key: 'id',         label: 'ID',       readonly: true },
       { key: 'name',       label: 'Produit' },
@@ -105,7 +105,7 @@ const TABLES: TableDef[] = [
     ],
   },
   {
-    name: 'clients', label: 'Clients', crud: true, pkField: 'id', officeField: 'office',
+    name: 'client', label: 'Clients', crud: true, pkField: 'id', officeField: 'office',
     columns: [
       { key: 'id',         label: 'ID',      readonly: true },
       { key: 'name',       label: 'Nom' },
@@ -214,12 +214,15 @@ function RowModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  type StockInitStatus = { state: 'pending' | 'ok' | 'warn'; detail: string } | null;
+  const [stockInit, setStockInit] = useState<StockInitStatus>(null);
 
   const editableCols = table.columns.filter(c => !c.readonly);
 
   const handleSave = async () => {
     setSaving(true);
     setError('');
+    setStockInit(null);
     try {
       let res;
       if (isNew) {
@@ -231,6 +234,31 @@ function RowModal({
         });
       }
       if (res.success === false) throw new Error(res.error || 'Erreur');
+
+      // ── Auto-init stock row when a new product (type='prod') is created ──
+      if (isNew && table.name === 'prod_serv' && form.type === 'prod') {
+        const productName = form.nom as string;
+        const office = (user?.office as string) || '';
+        if (productName && office) {
+          setStockInit({ state: 'pending', detail: `Initialisation du stock pour « ${productName} »…` });
+          const stockRes = await createDataToTable('stock', {
+            name: productName,
+            office,
+            qte: 0,
+          });
+          if (stockRes.success === false) {
+            setStockInit({
+              state: 'warn',
+              detail: `Produit créé, mais l'initialisation du stock a échoué : ${stockRes.error ?? 'erreur inconnue'}. Créez la ligne stock manuellement.`,
+            });
+            onSaved();
+            return;
+          }
+          setStockInit({ state: 'ok', detail: `Stock initialisé à 0 pour « ${productName} » (bureau : ${office}).` });
+          await new Promise(r => setTimeout(r, 1400));
+        }
+      }
+
       onSaved();
       onClose();
     } catch (e: unknown) {
@@ -295,6 +323,37 @@ function RowModal({
         </div>
 
         {error && <p className="text-danger text-sm">{error}</p>}
+
+        {/* Stock init feedback — only relevant for prod_serv + type=prod */}
+        {stockInit && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+            padding: '10px 14px', borderRadius: 12,
+            background: stockInit.state === 'ok'
+              ? 'rgba(22,163,74,0.10)'
+              : stockInit.state === 'warn'
+              ? 'rgba(245,158,11,0.12)'
+              : 'rgba(13,101,242,0.08)',
+            border: `1px solid ${
+              stockInit.state === 'ok' ? '#16a34a44'
+              : stockInit.state === 'warn' ? '#f59e0b55'
+              : '#0d65f233'
+            }`,
+          }}>
+            <span style={{ fontSize: '1rem', lineHeight: 1, marginTop: 1 }}>
+              {stockInit.state === 'ok' ? '✅' : stockInit.state === 'warn' ? '⚠️' : '⏳'}
+            </span>
+            <p style={{
+              fontSize: '0.78rem', lineHeight: 1.5, margin: 0,
+              color: stockInit.state === 'ok' ? '#15803d'
+                : stockInit.state === 'warn' ? '#b45309'
+                : '#0b55cb',
+            }}>
+              {stockInit.detail}
+            </p>
+          </div>
+        )}
+
         <div className="divider" />
 
         {/* Actions */}
@@ -305,7 +364,9 @@ function RowModal({
             disabled={saving}
             onClick={handleSave}
           >
-            {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
+            {saving
+              ? stockInit?.state === 'pending' ? 'Stock…' : '…'
+              : isNew ? 'Créer' : 'Enregistrer'}
           </button>
         </div>
       </div>

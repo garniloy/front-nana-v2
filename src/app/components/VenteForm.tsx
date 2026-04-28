@@ -1,4 +1,4 @@
-const backendUrl = 'https://backend-nana-v2.onrender.com/';
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 // globale functions here
 
 
@@ -147,7 +147,7 @@ const getDataWithoutConstraints = async (table:string) => {
 
 async function createSellData( fields: object) {
 
-    const response = await fetch('http://localhost:3000/sell' , {
+    const response = await fetch(backendUrl+'/sell' , {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

@@ -11,7 +11,7 @@ async function createDataToTable( fields: object) {
 }
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
-    const res = await fetch(backendUrl + 'getwith/' + table, {
+    const res = await fetch(backendUrl + '/getwith/' + table, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
