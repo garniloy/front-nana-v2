@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const backendUrl = 'http://localhost:3000';
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
   console.log(table, body);
@@ -115,7 +115,7 @@ export default function Bills() {
     setDownloading(activity.id);
     
     try {
-      const res = await fetch(`http://localhost:3000/bill/download/${activity.clientKind}/${activity.id}`);
+      const res = await fetch(`${backendUrl}/bill/download/${activity.clientKind}/${activity.id}`);
       if (!res.ok) throw new Error('Échec du téléchargement');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

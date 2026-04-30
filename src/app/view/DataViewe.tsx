@@ -441,7 +441,7 @@ function TablePanel({ table }: { table: TableDef }) {
     try {
       const constraints: Record<string, unknown> = {};
       if (table.officeField && !isSuperUser) {
-        constraints[table.officeField] = user?.office;
+        constraints[table.officeField] =  user?.office;
       }
       const res = await getDataFromTableWithConstraints(table.name, {
         constraints,
@@ -517,7 +517,7 @@ function TablePanel({ table }: { table: TableDef }) {
             <p className="text-body text-sm">Aucune donnée.</p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {table.columns.map(col => (
@@ -627,11 +627,11 @@ export default function DataViewer() {
       className="main "
       data-style="neuro"
       data-mode="light"
-      style={{ height:'100%', display: 'flex', padding: '1.5rem', gap: 0 , overflow: 'auto'}}
+      style={{width:'100%', height:'100%', display: 'flex', padding: '1.5rem', gap: 0 , overflowX: 'auto'}}
     >
-        <div className="surface col gap-sm" style={{ width: '100%' }}>
+        <div className="  col ">
             {/* Title */}
-            <div className="col " style={{ marginBottom: 20 }}>
+            <div className="col " >
                 <h1 className="text-heading text-2xl">Base de données</h1>
                 <p className="text-body text-sm">
                 {isSuperUser ? 'Vue globale — tous les bureaux' : `Bureau : ${user?.office ?? '—'}`}
@@ -641,11 +641,11 @@ export default function DataViewer() {
             {/* Tabs */}
             <div
                 className="surface"
-                style={{ padding: 0,height: '100%', borderRadius: '20px 20px 0 0', overflow: 'auto', flexShrink: 0 }}
+                style={{ padding: 0,height: 'auto', borderRadius: '20px 20px 0 0', overflow: 'auto', flexShrink: 0 }}
             >
                 <div
                 style={{
-                    display: 'flex', overflowX: 'auto', gap: 0,
+                    display: 'flex', overflowX: 'auto',
                     borderBottom: '2px solid var(--nm-dark)',
                 }}
                 >
@@ -700,8 +700,8 @@ export default function DataViewer() {
             <div
                 className="surface"
                 style={{
-                borderRadius: '0 0 20px 20px', padding: 8,maxHeight:'18rem',overflow: 'auto',
-                flex: 1, height: '100%', display: 'flex', flexDirection: 'column',
+                borderRadius: '0 0 20px 20px'  ,maxHeight:'18rem',
+                flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow:'auto',
                 }}
             >
                 {TABLES.map((t, i) =>
