@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 const backendUrl = 'https://backend-nana-v2.onrender.com';
 
+
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
   console.log(table, body);
 
@@ -111,6 +112,7 @@ export default function Bills() {
   }, []);
 
   async function downloadBill(activity: Activity) {
+    console.log('Downloading bill for activity', activity);
     if (downloading) return;
     setDownloading(activity.id);
     
@@ -224,9 +226,8 @@ export default function Bills() {
           flex: 1;
           background: var(--nm-bg);
           border-radius: var(--radius-xl);
-          padding: var(--padding-md);
           box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light);
-          display: flex; flex-direction: column; gap: var(--gap-xs);
+          display: flex; flex-direction: column;  align-items: center; justify-content: center;
         }
 
         /* ── Pill tag ── */
@@ -266,12 +267,7 @@ export default function Bills() {
 
       <div className="bills-root col gap-lg">
 
-        {/* ── Header ── */}
-        <div className="col gap-xs">
-          <h2 className="text-heading text-2xl">Factures</h2>
-          <p className="text-body text-sm">Téléchargez et gérez vos factures.</p>
-        </div>
-
+        
         {/* ── Filter pills ── */}
         <div className="row gap-sm">
           {FILTERS.map((f) => (
@@ -279,6 +275,7 @@ export default function Bills() {
               key={f.value}
               className={`filter-pill${filter === f.value ? ' active' : ''}`}
               onClick={() => setFilter(f.value)}
+              style={{height:'3rem', display:'flex', alignItems:'center'}}
             >
               {f.label}
             </button>
@@ -287,7 +284,7 @@ export default function Bills() {
 
         {/* ── Stat strip ── */}
         {!loading && filtered.length > 0 && (
-          <div className="stat-strip">
+          <div className="stat-strip" style={{ width: '100%', height: '4rem' }}>
             <div className="stat-box">
               <span className="text-label">Factures</span>
               <span className="text-heading text-xl">{filtered.length}</span>
@@ -318,7 +315,7 @@ export default function Bills() {
             <p className="text-body text-sm">Aucune facture pour cette période.</p>
           </div>
         ) : (
-          <div className="col gap-md">
+          <div className="col gap-sm " style={{ width: '100%',height:'300px', overflow:'auto' ,padding:'5px' }}>
             {filtered.map((activity) => {
               const isDownloading = downloading === activity.id;
               const isSuccess = successId === activity.id;
@@ -326,6 +323,7 @@ export default function Bills() {
                 <div
                   key={activity.id}
                   className={`bill-card${isSuccess ? ' success-flash' : ''}`}
+                  style={{height:'7rem', width:'100%'}}
                 >
                   {/* Avatar */}
                   <div className="avatar">
@@ -333,7 +331,7 @@ export default function Bills() {
                   </div>
 
                   {/* Info */}
-                  <div className="col gap-xs" style={{ flex: 1, minWidth: 0 }}>
+                  <div className="col" style={{ flex: 1, minWidth: 0, gap:0}}>
                     <span className="text-heading text-base truncate">{activity.client}</span>
                     <div className="row gap-xs align-center wrap">
                       <span className="text-label">{formatDate(activity.date)}</span>

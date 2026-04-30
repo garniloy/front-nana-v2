@@ -178,7 +178,7 @@ export default function client({onclose}: onCloseProps) {
   const getInitialClient = () => ({
      name: '', phone: '', sexe: '',
      office: '', age: "",
-    vendeur: "", 
+    seller: "", 
     created_at: 'now()',
   });
 
@@ -231,8 +231,8 @@ export default function client({onclose}: onCloseProps) {
       setErrors({ global: err.message });
     } finally {
       setLoading(false);
-      setTimeout(() => setErrors({}), 3000);
-      setTimeout(() => setSuccess(''), 3000);
+      //setTimeout(() => setErrors({}), 3000);
+      //setTimeout(() => setSuccess(''), 3000);
     }
   };
 
@@ -340,8 +340,8 @@ export default function client({onclose}: onCloseProps) {
         {/* Vendeur */}
         <div className="col gap-xs">
           <label className="text-label">Vendeur</label>
-          <input className="input" placeholder="Vendeur" value={newClient.vendeur}
-            onChange={(e) => setnewClient(dr => { dr.vendeur = e.target.value })} />
+          <input className="input" placeholder="Vendeur" value={newClient.seller}
+            onChange={(e) => setnewClient(dr => { dr.seller = e.target.value })} />
         </div>
 
         {/* Office */}

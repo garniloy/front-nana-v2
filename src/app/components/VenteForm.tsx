@@ -25,7 +25,7 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 // create data in any table
 async function createDataToTable(table: string, fields: object) {
 
-    const response = await fetch(backendUrl + '/crud/create/' + table, {
+    const response = await fetch(backendUrl +'/crud/create/' + table, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -68,7 +68,7 @@ async function createDataToTable(table: string, fields: object) {
 */
 //get data with contraints
 const getDataFromTableWithConstraints = async (table:string, body:object) => {
-    const res = await fetch(backendUrl +  '/crud/getwith/' + table, {
+    const res = await fetch(backendUrl +'/crud/getwith/' + table, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -147,7 +147,7 @@ const getDataWithoutConstraints = async (table:string) => {
 
 async function createSellData( fields: object) {
 
-    const response = await fetch(backendUrl+'/sell' , {
+    const response = await fetch(backendUrl +'/sell' , {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -409,8 +409,8 @@ export default function vente({onclose}: onCloseProps){
     const [loading, setLoading] = useState(true);
   
     // ── Sell state ──
-    const [sell, setSell] = useImmer<SellState>({ ...INITIAL_SELL, id: genId() });
-    const [actualSell, setActualSell] = useState<Actualsell[]>([{id:"", name:"", amount:0, office:"", manager:""}]);
+    const [sell, setSell] = useImmer<SellState>({ ...INITIAL_SELL});
+    const [actualSell, setActualSell] = useImmer<Actualsell[]>([]);
   
     // ── Form / UI state ──
     const [sellerInput, setSellerInput] = useState("");
@@ -537,7 +537,7 @@ useEffect(() => {
           constraints: { is_deleted: false, ...officeConstraint },
         }),
 
-        getDataFromTableWithConstraints('clients', {
+        getDataFromTableWithConstraints('client', {
           fields: ['id', 'name', 'sexe', 'phone', 'seller'],
           constraints: { ...officeConstraint },
         }),
@@ -807,8 +807,9 @@ useEffect(() => {
       setSubmitStatus(null);
       try {
         const now = new Date().toISOString();
+        const id = genId();
         const activity = {
-          id: sell.id,
+          id: id,
           seller: sell.seller,
           clientKind: sell.clientKind,
           client: sell.client,
@@ -820,9 +821,9 @@ useEffect(() => {
           bill_sent: false,
           total_pv: sell.total_pv,
           details: sell.details,
-        };
+        };//[{id:activity.id, name:activity.client || "Inconnu", amount: sell.total_amount, office: sell.office, manager: sell.sellerObj?.name || "Inconnu"}]
 
-        setActualSell((d) => [...d, {id:activity.id, name:activity.client || "Inconnu", amount: sell.total_amount, office: sell.office, manager: sell.sellerObj?.name || "Inconnu"}])
+        setActualSell((d)=>{d.push({id:activity.id, name:activity.client || "Inconnu", amount: sell.total_amount, office: sell.office, manager: sell.sellerObj?.name || "Inconnu"})})
         console.log("Submitting activity:", activity, actualSell); //......
 
         const field = {
@@ -861,7 +862,7 @@ useEffect(() => {
     }
   
     function resetSell() {
-      setSell({ ...INITIAL_SELL, id: genId() });
+      setSell({ ...INITIAL_SELL });
       setSellerInput("");
       setClientInput("");
       setProdInput("");

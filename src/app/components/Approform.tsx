@@ -11,7 +11,7 @@ async function createDataToTable( fields: object) {
 }
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
-    const res = await fetch(backendUrl + '/getwith/' + table, {
+    const res = await fetch(backendUrl + '/crud/getwith/' + table, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -88,6 +88,9 @@ export default function Appro({ onclose }: onCloseProps) {
                 setErrors('Erreur lors du chargement du stock : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
             } finally {
                 setLoading(false);
+                setTimeout(() => {
+                    setErrors('');
+                }, 3000);
             }
         };
 
@@ -115,6 +118,7 @@ export default function Appro({ onclose }: onCloseProps) {
     const submitAppro = async () => {
         setSubmitting(true);
         try {
+            console.log(approList)
             // FIX: use selectedOffice (reflects the office picker), not the stale user.office
             const appro = await createDataToTable({
                 approList

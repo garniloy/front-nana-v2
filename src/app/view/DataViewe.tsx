@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback} from 'react';
 import '../css/form.css'
+import OfficeSelector from '../components/Office-selector';
 
 // ── Backend helpers ───────────────────────────────────────────────────────────
 const backendUrl = 'https://backend-nana-v2.onrender.com';
@@ -29,9 +30,11 @@ const deleteDataFromTable = async (table: string, fields: object) => {
   return res.json();
 };
 
+
 // ── User ──────────────────────────────────────────────────────────────────────
 const user = JSON.parse(localStorage.getItem('user') || 'null');
 const isSuperUser = user?.role === 'superuser' || user?.owner === true;
+const showOfficeSelector = user.role === 'superuser' || user.owner === true;
 
 // ── Table definitions ─────────────────────────────────────────────────────────
 type ColDef = { key: string; label: string; type?: string; readonly?: boolean; options?: string[] };
@@ -39,7 +42,7 @@ type ColDef = { key: string; label: string; type?: string; readonly?: boolean; o
 type TableDef = {
   name: string;
   label: string;
-  crud: boolean;           // false = read-only
+  crud: boolean;
   pkField: string;
   officeField: string | null;
   columns: ColDef[];
@@ -199,20 +202,46 @@ function CellValue({ col, value }: { col: ColDef; value: unknown }) {
   return <span className="text-sm">{String(value)}</span>;
 }
 
+// ── Office Guard Banner ───────────────────────────────────────────────────────
+// Shown inside a CRUD table when superuser hasn't picked an office yet
+function OfficeGuardBanner() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '12px 18px', borderRadius: 12, margin: '8px 0',
+      background: 'rgba(245,158,11,0.10)',
+      border: '1px solid rgba(245,158,11,0.35)',
+    }}>
+      <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+      <p style={{ margin: 0, fontSize: '0.8rem', color: '#b45309', lineHeight: 1.5 }}>
+        Sélectionnez un bureau via le sélecteur en haut à droite avant d'effectuer
+        une opération d'écriture (ajout, modification, suppression).
+      </p>
+    </div>
+  );
+}
+
 // ── Row Form Modal ────────────────────────────────────────────────────────────
 function RowModal({
-  table, row, onClose, onSaved,
+  table, row, onClose, onSaved, resolvedOffice,
 }: {
   table: TableDef;
-  row: Row | null;  // null = create new
+  row: Row | null;
   onClose: () => void;
   onSaved: () => void;
+  /** The office that will be stamped on new rows (superuser-selected or user's own office) */
+  resolvedOffice: string;
 }) {
   const isNew = row === null;
+
+  // Pre-fill office field for new rows so the user sees it and can't accidentally blank it
   const [form, setForm] = useState<Row>(() => {
-    if (isNew) return {};
+    if (isNew) {
+      return table.officeField ? { [table.officeField]: resolvedOffice } : {};
+    }
     return { ...row };
   });
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   type StockInitStatus = { state: 'pending' | 'ok' | 'warn'; detail: string } | null;
@@ -221,6 +250,12 @@ function RowModal({
   const editableCols = table.columns.filter(c => !c.readonly);
 
   const handleSave = async () => {
+    // ── Superuser guard: office must be set on the form for tables that have an officeField ──
+    if (isSuperUser && table.officeField && !form[table.officeField]) {
+      setError('Veuillez renseigner le bureau avant d\'enregistrer.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     setStockInit(null);
@@ -239,7 +274,8 @@ function RowModal({
       // ── Auto-init stock row when a new product (type='prod') is created ──
       if (isNew && table.name === 'prod_serv' && form.type === 'prod') {
         const productName = form.nom as string;
-        const office = (user?.office as string) || '';
+        // Use resolvedOffice (already contains the right value for both superuser and regular user)
+        const office = resolvedOffice;
         if (productName && office) {
           setStockInit({ state: 'pending', detail: `Initialisation du stock pour « ${productName} »…` });
           const stockRes = await createDataToTable('stock', {
@@ -283,6 +319,21 @@ function RowModal({
           </h3>
           <button className="btn btn-ghost" onClick={onClose}>✕</button>
         </div>
+
+        {/* Office context badge — reminds superuser which office this write targets */}
+        {isSuperUser && resolvedOffice && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8,
+            background: 'rgba(13,101,242,0.08)',
+            border: '1px solid rgba(13,101,242,0.20)',
+            fontSize: '0.75rem', color: '#0b55cb',
+          }}>
+            <span>🏢</span>
+            <span>Bureau cible : <strong>{resolvedOffice}</strong></span>
+          </div>
+        )}
+
         <div className="divider" />
 
         {/* Fields */}
@@ -313,6 +364,11 @@ function RowModal({
                   className="input"
                   type={col.type === 'number' ? 'number' : col.type === 'datetime-local' ? 'datetime-local' : 'text'}
                   value={String(form[col.key] ?? '')}
+                  // Lock the office field for superusers so they can't accidentally clear it
+                  readOnly={isSuperUser && col.key === table.officeField}
+                  style={isSuperUser && col.key === table.officeField
+                    ? { opacity: 0.7, cursor: 'not-allowed' }
+                    : undefined}
                   onChange={e => setForm(f => ({
                     ...f,
                     [col.key]: col.type === 'number' ? Number(e.target.value) : e.target.value,
@@ -325,7 +381,7 @@ function RowModal({
 
         {error && <p className="text-danger text-sm">{error}</p>}
 
-        {/* Stock init feedback — only relevant for prod_serv + type=prod */}
+        {/* Stock init feedback */}
         {stockInit && (
           <div style={{
             display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -426,23 +482,54 @@ function DeleteModal({
 }
 
 // ── Table Panel ───────────────────────────────────────────────────────────────
-function TablePanel({ table }: { table: TableDef }) {
+function TablePanel({
+  table,
+  selectedOffice,
+}: {
+  table: TableDef;
+  /** Empty string = no filter (superuser sees all); non-empty = filter to that office */
+  selectedOffice: string;
+}) {
   const [rows, setRows]           = useState<Row[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
   const [search, setSearch]       = useState('');
-  const [editRow, setEditRow]     = useState<Row | null | 'new'>( null); // null=closed, 'new'=create, Row=edit
+  const [editRow, setEditRow]     = useState<Row | null | 'new'>(null);
   const [deleteRow, setDeleteRow] = useState<Row | null>(null);
-  const fetched                   = useRef(false);
+
+  /**
+   * resolvedOffice: the office value used for stamping writes.
+   * - Superuser: whatever they selected in the OfficeSelector (may be '')
+   * - Regular user: always their own office
+   */
+  const resolvedOffice = isSuperUser ? selectedOffice : (user?.office ?? '');
+
+  /**
+   * crudBlocked: true when a superuser is on a table that has an officeField
+   * but hasn't chosen an office yet. We block the CRUD buttons to prevent
+   * silent data mismatches.
+   */
+  const crudBlocked = isSuperUser && table.officeField !== null && !selectedOffice;
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const constraints: Record<string, unknown> = {};
-      if (table.officeField && !isSuperUser) {
-        constraints[table.officeField] =  user?.office;
+
+      if (table.officeField) {
+        if (isSuperUser) {
+          // Superuser: filter only if an office is selected; otherwise fetch all
+          if (selectedOffice) {
+            constraints[table.officeField] = selectedOffice;
+          }
+          // selectedOffice === '' → no constraint → all offices
+        } else {
+          // Regular user: always scoped to their own office
+          constraints[table.officeField] = user?.office;
+        }
       }
+
       const res = await getDataFromTableWithConstraints(table.name, {
         constraints,
         orderBy: table.columns.find(c => c.key === 'created_at' || c.key === 'date')
@@ -457,12 +544,10 @@ function TablePanel({ table }: { table: TableDef }) {
     } finally {
       setLoading(false);
     }
-  }, [table]);
+  }, [table, selectedOffice]);
 
-  // Fetch once when panel mounts (lazy — only happens when tab is selected)
+  // Re-fetch whenever the selected office changes or the table changes
   useEffect(() => {
-    if (fetched.current) return;
-    fetched.current = true;
     fetchRows();
   }, [fetchRows]);
 
@@ -474,8 +559,27 @@ function TablePanel({ table }: { table: TableDef }) {
     )
   );
 
+  // ── CRUD action guards ────────────────────────────────────────────────────
+  const handleAddClick = () => {
+    if (crudBlocked) return; // button is visually disabled anyway
+    setEditRow('new');
+  };
+
+  const handleEditClick = (row: Row) => {
+    if (crudBlocked) return;
+    setEditRow(row);
+  };
+
+  const handleDeleteClick = (row: Row) => {
+    if (crudBlocked) return;
+    setDeleteRow(row);
+  };
+
   return (
     <div className="col gap-md" style={{ height: '100%' }}>
+
+      {/* Office guard banner — shown only to superusers on tables with an officeField */}
+      {crudBlocked && table.crud && <OfficeGuardBanner />}
 
       {/* Toolbar */}
       <div className="row align-center justify-between" style={{ flexWrap: 'wrap', gap: 8 }}>
@@ -494,7 +598,13 @@ function TablePanel({ table }: { table: TableDef }) {
             <span>↻</span><span className="text-sm">Actualiser</span>
           </button>
           {table.crud && (
-            <button className="btn btn-primary gap-xs" onClick={() => setEditRow('new')}>
+            <button
+              className="btn btn-primary gap-xs"
+              onClick={handleAddClick}
+              disabled={crudBlocked}
+              title={crudBlocked ? 'Sélectionnez un bureau d\'abord' : undefined}
+              style={crudBlocked ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+            >
               <span>＋</span><span className="text-sm">Ajouter</span>
             </button>
           )}
@@ -568,15 +678,26 @@ function TablePanel({ table }: { table: TableDef }) {
                       <div className="row gap-xs">
                         <button
                           className="btn gap-xs"
-                          style={{ padding: '3px 10px', fontSize: '0.75rem' }}
-                          onClick={() => setEditRow(row)}
+                          style={{
+                            padding: '3px 10px', fontSize: '0.75rem',
+                            ...(crudBlocked ? { opacity: 0.4, cursor: 'not-allowed' } : {}),
+                          }}
+                          disabled={crudBlocked}
+                          title={crudBlocked ? 'Sélectionnez un bureau d\'abord' : undefined}
+                          onClick={() => handleEditClick(row)}
                         >
                           ✎
                         </button>
                         <button
                           className="btn gap-xs"
-                          style={{ padding: '3px 10px', fontSize: '0.75rem', color: 'var(--clr-danger-500)' }}
-                          onClick={() => setDeleteRow(row)}
+                          style={{
+                            padding: '3px 10px', fontSize: '0.75rem',
+                            color: crudBlocked ? undefined : 'var(--clr-danger-500)',
+                            ...(crudBlocked ? { opacity: 0.4, cursor: 'not-allowed' } : {}),
+                          }}
+                          disabled={crudBlocked}
+                          title={crudBlocked ? 'Sélectionnez un bureau d\'abord' : undefined}
+                          onClick={() => handleDeleteClick(row)}
                         >
                           ✕
                         </button>
@@ -597,6 +718,7 @@ function TablePanel({ table }: { table: TableDef }) {
           row={editRow === 'new' ? null : editRow}
           onClose={() => setEditRow(null)}
           onSaved={fetchRows}
+          resolvedOffice={resolvedOffice}
         />
       )}
       {deleteRow && (
@@ -614,8 +736,8 @@ function TablePanel({ table }: { table: TableDef }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DataViewer() {
   const [activeIdx, setActiveIdx] = useState(0);
-  // We keep a set of which panels have been mounted (so their data isn't reset on tab switch)
   const [mounted, setMounted] = useState<Set<number>>(new Set([0]));
+  const [selectedOffice, setSelectedOffice] = useState('');
 
   const handleTab = (idx: number) => {
     setActiveIdx(idx);
@@ -624,104 +746,110 @@ export default function DataViewer() {
 
   return (
     <main
-      className="main "
+      className="main"
       data-style="neuro"
       data-mode="light"
-      style={{width:'100%', height:'100%', display: 'flex', padding: '1.5rem', gap: 0 , overflowX: 'auto'}}
+      style={{ width: '100%', height: '100%', display: 'flex', padding: '1.5rem', gap: 0, overflowX: 'auto' }}
     >
-        <div className="  col ">
-            {/* Title */}
-            <div className="col " >
-                <h1 className="text-heading text-2xl">Base de données</h1>
-                <p className="text-body text-sm">
-                {isSuperUser ? 'Vue globale — tous les bureaux' : `Bureau : ${user?.office ?? '—'}`}
-                </p>
-            </div>
-
-            {/* Tabs */}
-            <div
-                className="surface"
-                style={{ padding: 0,height: 'auto', borderRadius: '20px 20px 0 0', overflow: 'auto', flexShrink: 0 }}
-            >
-                <div
-                style={{
-                    display: 'flex', overflowX: 'auto',
-                    borderBottom: '2px solid var(--nm-dark)',
-                }}
-                >
-                {TABLES.map((t, i) => {
-                    const active = i === activeIdx;
-                    return (
-                    <button
-                        key={t.name}
-                        onClick={() => handleTab(i)}
-                        style={{
-                        padding: '14px 20px',
-                        fontSize: '0.8rem',
-                        fontWeight: active ? 700 : 500,
-                        whiteSpace: 'nowrap',
-                        color: active ? 'var(--nm-brand)' : 'var(--nm-text)',
-                        background: active
-                            ? 'var(--nm-bg)'
-                            : 'transparent',
-                        boxShadow: active
-                            ? 'inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light)'
-                            : 'none',
-                        borderBottom: active ? '2px solid var(--nm-brand)' : '2px solid transparent',
-                        transition: 'all 0.18s',
-                        border: 'none',
-                        cursor: 'pointer',
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        }}
-                    >
-                        {t.label}
-                        {!t.crud && (
-                        <span style={{
-                            fontSize: '0.6rem', padding: '1px 5px',
-                            borderRadius: 9999,
-                            background: 'var(--nm-dark)',
-                            color: 'var(--nm-text)',
-                            fontWeight: 600,
-                            letterSpacing: '0.05em',
-                        }}>
-                            RO
-                        </span>
-                        )}
-                    </button>
-                    );
-                })}
-                </div>
-            </div>
-
-            {/* Panels — render all mounted ones, hide inactive (preserves state & avoids refetch) */}
-            <div
-                className="surface"
-                style={{
-                borderRadius: '0 0 20px 20px'  ,maxHeight:'18rem',
-                flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow:'auto',
-                }}
-            >
-                {TABLES.map((t, i) =>
-                mounted.has(i) ? (
-                    <div
-                    key={t.name}
-                    style={{
-                        display: i === activeIdx ? 'flex' : 'none',
-                        flexDirection: 'column',
-                        flex: 1,
-                        minHeight: 0,
-                        height: '100%',
-                    }}
-                    >
-                    <TablePanel table={t} />
-                    </div>
-                ) : null
-                )}
-            </div>
+      <div className="col">
+        {/* Title */}
+        <div className="row">
+          <div className="col">
+            <h1 className="text-heading text-2xl">Base de données</h1>
+            <p className="text-body text-sm">
+              {isSuperUser
+                ? selectedOffice
+                  ? `Vue filtrée — bureau : ${selectedOffice}`
+                  : 'Vue globale — tous les bureaux'
+                : `Bureau : ${user?.office ?? '—'}`}
+            </p>
+          </div>
+          {showOfficeSelector && (
+            <OfficeSelector
+              onOfficeSelect={(officeName: string) => {
+                setSelectedOffice(officeName);
+              }}
+            />
+          )}
         </div>
+
+        {/* Tabs */}
+        <div
+          className="surface"
+          style={{ padding: 0, height: 'auto', borderRadius: '20px 20px 0 0', overflow: 'auto', flexShrink: 0 }}
+        >
+          <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '2px solid var(--nm-dark)' }}>
+            {TABLES.map((t, i) => {
+              const active = i === activeIdx;
+              return (
+                <button
+                  key={t.name}
+                  onClick={() => handleTab(i)}
+                  style={{
+                    padding: '14px 20px',
+                    fontSize: '0.8rem',
+                    fontWeight: active ? 700 : 500,
+                    whiteSpace: 'nowrap',
+                    color: active ? 'var(--nm-brand)' : 'var(--nm-text)',
+                    background: active ? 'var(--nm-bg)' : 'transparent',
+                    boxShadow: active
+                      ? 'inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light)'
+                      : 'none',
+                    borderBottom: active ? '2px solid var(--nm-brand)' : '2px solid transparent',
+                    transition: 'all 0.18s',
+                    border: 'none',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  {t.label}
+                  {!t.crud && (
+                    <span style={{
+                      fontSize: '0.6rem', padding: '1px 5px',
+                      borderRadius: 9999,
+                      background: 'var(--nm-dark)',
+                      color: 'var(--nm-text)',
+                      fontWeight: 600,
+                      letterSpacing: '0.05em',
+                    }}>
+                      RO
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Panels */}
+        <div
+          className="surface"
+          style={{
+            borderRadius: '0 0 20px 20px', maxHeight: '18rem',
+            flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto',
+          }}
+        >
+          {TABLES.map((t, i) =>
+            mounted.has(i) ? (
+              <div
+                key={t.name}
+                style={{
+                  display: i === activeIdx ? 'flex' : 'none',
+                  flexDirection: 'column',
+                  flex: 1,
+                  minHeight: 0,
+                  height: '100%',
+                }}
+              >
+                <TablePanel table={t} selectedOffice={selectedOffice} />
+              </div>
+            ) : null
+          )}
+        </div>
+      </div>
     </main>
   );
 }
