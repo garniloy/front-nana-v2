@@ -490,7 +490,7 @@ useEffect(() => {
           constraints: { is_deleted: false, ...officeConstraint },
         }),
 
-        getDataFromTableWithConstraints('clients', {
+        getDataFromTableWithConstraints('client', {
           fields: ['id', 'name', 'sexe', 'phone', 'seller'],
           constraints: { ...officeConstraint },
         }),
@@ -816,7 +816,7 @@ useEffect(() => {
           payment_mode: sell.payment_mode,
           total_amount: sell.total_amount,
           total_benefice: sell.total_benefice,
-          office: selectedOffice|| sell.office,
+          office: user.owner || user.role ==='superuser'? selectedOffice : user.office,
           date: now,
           bill_sent: false,
           total_pv: sell.total_pv,
@@ -827,7 +827,7 @@ useEffect(() => {
         console.log("Submitting activity:", activity, actualSell); //......
 
         const field = {
-          office : selectedOffice|| sell.office,
+          office : user.owner || user.role ==='superuser'? selectedOffice : user.office,
           sell : actualSell,
           activity : activity
         }
@@ -843,7 +843,7 @@ useEffect(() => {
           if (ps?.type !== "prod") continue;
           const current = getStockQty(name);
           await createDataToTable("stock_move", {
-            element: name, qty, type: "OUT", date: now, office: user.office,
+            element: name, qty, type: "OUT", date: now, office: user.owner || user.role ==='superuser'? selectedOffice : user.office,
           });
           setStock((d) => {
             const s = d.find((st) => st.name === name);
