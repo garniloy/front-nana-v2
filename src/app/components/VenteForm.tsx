@@ -246,7 +246,7 @@ export default function Vente({ onclose }: onCloseProps) {
 
   // ── Sell state ──
   const [sell, setSell]             = useImmer<SellState>({ ...INITIAL_SELL } as SellState);
-  const [actualSell, setActualSell] = useImmer<Actualsell>({} as Actualsell);
+  //const [actualSell, setActualSell] = useImmer<Actualsell>({} as Actualsell);
 
   // ── Form / UI state ──
   const [sellerInput, setSellerInput]       = useState('');
