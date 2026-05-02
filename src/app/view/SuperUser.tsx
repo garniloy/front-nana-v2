@@ -175,6 +175,7 @@ async function deleteDataFromTable(table:string, fields: object) {
 // global actions
 const user = JSON.parse(localStorage.getItem("user") || "null");
 const connected = localStorage.getItem("connected");
+console.log(user)
 
 
 // imports
