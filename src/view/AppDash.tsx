@@ -3,20 +3,36 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import '../css/appDash.css'
+import UserMenu from '../app/components/UserMenu';
 
+import { useState } from 'react';
+
+const backendUrl = import.meta.env.VITE_API_URL;
+
+const getDataFromTableWithConstraints = async () => {
+    const res = await fetch(backendUrl + '/logout', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    console.log(data);
+    return data;
+};
 
 export default function Appdash() {
-    const permitions = {
-		ownerview : {status : true},
-		formview : {status : true},
-		statview : {status : true},
-		dbview : {status : true},
-		settingview : {status : true},
-		planview : {status : true}
-	}
+
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "null");
-    const connected = localStorage.getItem("connected");
+    const connected = localStorage.getItem("connected"); 
+
+    const permitions = {
+		ownerview : {status : user.owner || user.role === 'superuser'?true:false},
+		formview : {status : true},
+		dbview : {status : true},
+		settingview : {status : false},
+		planview : {status : false}
+	}
+    
     
 
     
@@ -24,6 +40,25 @@ export default function Appdash() {
         navigate('/login');
     }
 
+    const logOut = ()=>{
+        //logout to the backend
+        try {
+            getDataFromTableWithConstraints()
+            
+        } catch (error) {
+            console.log('hummm')
+        } finally{
+            localStorage.removeItem("user");
+            localStorage.removeItem("connected");
+            navigate("/login");
+        }
+        
+    }
+
+    const [usermenu, setUserMenu] = useState(false)
+    const close = ()=>{
+        setUserMenu(false)
+    }
     //get permissions and verify if office is working
 
 
@@ -31,10 +66,14 @@ export default function Appdash() {
     return(
         
             <div className="main" >
+                {usermenu && 
+                <div className="user-menu" >
+                    <UserMenu onClose={()=>{close()}} username={user.name} userId={user.id} showStatBtn= {permitions.ownerview.status} onGoStats={()=>{navigate('/dashboard')}} onLogout={()=>{logOut()}}></UserMenu>
+                </div>}
                 <div className="cadre">
                     <div className="display-zone">
                         <div className="side-zone" data-style="neuro" data-mode="light">
-                            <div className="colabse-menu btn">
+                            <div className="colabse-menu btn" onClick={()=>{usermenu?setUserMenu(false): setUserMenu(true)}}>
                                 <svg width="24" height="24" className="sidebar-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
                                     <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
@@ -49,14 +88,6 @@ export default function Appdash() {
                                         <path d="M4 8H2v12c0 1.103.897 2 2 2h12v-2H4V8Zm11-2h-2v3h-3v2h3v3h2v-3h3V9h-3V6Z"></path>
                                     </svg>
                                     <p>Formulaires</p>
-                                </NavLink>}
-
-                                {permitions.statview.status && 
-                                <NavLink className= {({ isActive }) => isActive ? "nav-item  active" : "nav-item btn"}  to="/app/statistiques">
-                                    <svg width="24" height="24" className="sidebar-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M20 12a2 2 0 0 0-.703.133l-2.398-1.963c.059-.214.101-.436.101-.67C17 8.114 15.886 7 14.5 7A2.493 2.493 0 0 0 12 9.5c0 .396.1.765.262 1.097l-2.909 3.438A2.06 2.06 0 0 0 9 14c-.179 0-.348.03-.512.074l-2.563-2.563C5.97 11.348 6 11.179 6 11c0-1.108-.892-2-2-2s-2 .892-2 2 .892 2 2 2c.179 0 .348-.03.512-.074l2.563 2.563A1.906 1.906 0 0 0 7 16c0 1.108.892 2 2 2s2-.892 2-2c0-.237-.048-.46-.123-.671l2.913-3.442c.227.066.462.113.71.113a2.48 2.48 0 0 0 1.133-.281l2.399 1.963A2.08 2.08 0 0 0 18 14c0 1.108.892 2 2 2s2-.892 2-2-.892-2-2-2Z"></path>
-                                    </svg>
-                                    <p>Statistiques</p>
                                 </NavLink>}
 
                                 {permitions.dbview.status && 

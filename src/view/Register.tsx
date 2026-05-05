@@ -4,7 +4,7 @@ import { gsap } from "gsap";
 import '../css/register.css';
 
 
-const backendUrl = 'https://backend-nana-v2.onrender.com'
+const backendUrl = import.meta.env.VITE_API_URL;
 
 async function fetchUserData(id: string, password: string, name: string, phone: string) {
     const response = await fetch(backendUrl+'/owner', {

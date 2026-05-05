@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback} from 'react';
-import '../css/form.css'
+//import '../css/form.css'
 import OfficeSelector from '../components/Office-selector';
 
 // ── Backend helpers ───────────────────────────────────────────────────────────
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = import.meta.env.VITE_API_URL;
+
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
   const res = await fetch(`${backendUrl}/crud/getwith/${table}`, {
@@ -23,12 +24,18 @@ const updateDataToTable = async (table: string, fields: object) => {
   });
   return res.json();
 };
-const deleteDataFromTable = async (table: string, fields: object) => {
-  const res = await fetch(`${backendUrl}/crud/delete/${table}`, {
-    method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields),
-  });
-  return res.json();
-};
+//delete data
+async function deleteDataFromTable(table:string, fields: object) {
+    const response = await fetch(backendUrl + '/crud/delete/' + table, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(fields)
+    });
+    const data = await response.json();
+    return data;
+}
 
 
 // ── User ──────────────────────────────────────────────────────────────────────

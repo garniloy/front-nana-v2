@@ -1,13 +1,12 @@
-const backendUrl = 'https://backend-nana-v2.onrender.com/crud/';
+const backendUrl = import.meta.env.VITE_API_URL;
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
-    const res = await fetch(backendUrl + 'getwith/' + table, {
+    const res = await fetch(backendUrl + '/crud/getwith/' + table, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
     const data = await res.json();
-    console.log(data);
     return data;
 };
 
@@ -73,7 +72,9 @@ export default function OfficeSelector({
 
         const fetchdata = async () => {
             try {
+                console.log(field);
                 const data = await getDataFromTableWithConstraints('office', field);
+                console.log(data);
                 if (data.success === true) {
                     if (data.list.length > 0) {
                         setOffices(data.list);
@@ -81,10 +82,10 @@ export default function OfficeSelector({
                         setError('Aucun bureau disponible');
                     }
                 } else {
-                    setError('Un problème est survenu');
+                    setError(`Un problème est survenu: ${data.message}`);
                 }
             } catch {
-                setError('Un problème est survenu');
+                setError('Un problème est survenu 2');
             }
         };
 

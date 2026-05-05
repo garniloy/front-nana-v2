@@ -4,7 +4,7 @@
 // ---------------------------------------
 
 // url backend here
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = import.meta.env.VITE_API_URL;
 
 // globale functions here
 
@@ -162,7 +162,7 @@ async function updateDataToTable(table: string, fields: object) {
 //delete data
 async function deleteDataFromTable(table:string, fields: object) {
     const response = await fetch(backendUrl + '/crud/delete/' + table, {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
@@ -1145,6 +1145,7 @@ export default function sudo(){
             className="main"
             data-style="neuro"
             data-mode="light"
+            
         >
             {/* GLOBAL LOADING */}
             {isLoading.global && (

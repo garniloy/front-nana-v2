@@ -1,5 +1,5 @@
-const backendUrl = 'https://backend-nana-v2.onrender.com';
-//const backendUrl = 'http://localhost:3000';
+const backendUrl = import.meta.env.VITE_API_URL;
+
 
 async function createDataToTable(table: string, fields: object) {
   const response = await fetch(backendUrl + '/crud/create/' + table, {

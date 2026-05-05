@@ -6,11 +6,11 @@ import Login from './view/Login';
 import AppDash from './view/AppDash';
 import NotFound from './view/NotFound';
 import Settings from './app/view/Settings';
-import Stats from './app/view/Statistique';
 import DataVisualizer from './app/view/DataViewe';
 import Subscription from './app/view/abonnement';
 import SuperUser from './app/view/SuperUser';
 import Forms from './app/view/Formulaire';
+import Dashboard from './view/Dashboard';
 import { useNavigate } from 'react-router-dom';
 
 
@@ -29,12 +29,12 @@ function App() {
       <Route path='/app' element={<AppDash />}> 
         <Route index element={<Forms />} />
         <Route path="formulaires" element={<Forms />} />
-        <Route path="statistiques" element={<Stats />} />
         <Route path="visualiseur-de-donnee" element={<DataVisualizer />} />
         <Route path="parametres" element={<Settings />} />
         <Route path="abonnement" element={<Subscription />} />
         <Route path="super-utilisateur" element={<SuperUser />} />
       </Route>
+      <Route path='/dashboard' element={<Dashboard />} />
       <Route path='*' element={<NotFound />} />
     </Routes>
   )

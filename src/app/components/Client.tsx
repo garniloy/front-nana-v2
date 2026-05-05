@@ -1,6 +1,6 @@
 
 // url backend here
-const backendUrl = 'https://backend-nana-v2.onrender.com/crud/';
+const backendUrl = import.meta.env.VITE_API_URL;
 
 // globale functions here
 
@@ -137,9 +137,38 @@ import OfficeSelector from './Office-selector';
 
 
 const countries = [
-  { code: "237", name: "Cameroon" },
-  { code: "33", name: "France" },
-  { code: "1", name: "USA" },
+  // Afrique de l’Ouest
+  { code: "229", name: "Bénin" },
+  { code: "226", name: "Burkina Faso" },
+  { code: "238", name: "Cap-Vert" },
+  { code: "225", name: "Côte d’Ivoire" },
+  { code: "220", name: "Gambie" },
+  { code: "233", name: "Ghana" },
+  { code: "224", name: "Guinée" },
+  { code: "245", name: "Guinée-Bissau" },
+  { code: "231", name: "Libéria" },
+  { code: "223", name: "Mali" },
+  { code: "222", name: "Mauritanie" },
+  { code: "227", name: "Niger" },
+  { code: "234", name: "Nigeria" },
+  { code: "221", name: "Sénégal" },
+  { code: "232", name: "Sierra Leone" },
+  { code: "228", name: "Togo" },
+
+  // Afrique centrale
+  { code: "244", name: "Angola" },
+  { code: "237", name: "Cameroun" },
+  { code: "236", name: "République centrafricaine" },
+  { code: "235", name: "Tchad" },
+  { code: "243", name: "République démocratique du Congo" },
+  { code: "242", name: "République du Congo" },
+  { code: "240", name: "Guinée équatoriale" },
+  { code: "241", name: "Gabon" },
+  { code: "239", name: "Sao Tomé-et-Principe" },
+
+  // Optionnel (Afrique centrale élargie)
+  { code: "250", name: "Rwanda" },
+  { code: "257", name: "Burundi" },
 ];
 
 
@@ -204,7 +233,7 @@ export default function client({onclose}: onCloseProps) {
     const newErrors: any = {};
     
     if (!validateRequired(newClient.name)) setnewClient(dr => { dr.name = user.promoted_by });
-    if(newClient.phone.length  <= 8 || isNaN(Number(newClient.phone))) newErrors.phone = "Numéro de téléphone invalide";
+    if(phoneNumber.length  <= 8 || isNaN(Number(phoneNumber))) newErrors.phone = "Numéro de téléphone invalide";
     if (!validateRequired(newClient.office)) setnewClient(dr => { dr.office = user.owner ? selectedOffice : user.office; });
     if (!newClient.age || isNaN(Number(newClient.age))) newErrors.age = "Âge invalide";
     setErrors(newErrors);
@@ -299,7 +328,7 @@ export default function client({onclose}: onCloseProps) {
           <div className="row gap-sm align-center">
             <div
               className="btn"
-              style={{ minWidth: '5rem', justifyContent: 'center' }}
+              style={{ minWidth: '5rem', justifyContent: 'center' , cursor:'pointer'}}
               onClick={() => setShowCountries(!showCountries)}
             >
               {theCnuntry || 'Pays'}
@@ -318,6 +347,7 @@ export default function client({onclose}: onCloseProps) {
                   key={c.code}
                   className="btn btn-ghost text-sm"
                   onClick={() => { setTheCountry(c.code); setShowCountries(false); }}
+                  style={{cursor:'pointer'}}
                 >
                   {c.code} {c.name}
                 </div>

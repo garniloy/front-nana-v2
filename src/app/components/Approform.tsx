@@ -1,4 +1,4 @@
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = import.meta.env.VITE_API_URL;
 
 async function createDataToTable( fields: object) {
     const response = await fetch(backendUrl + '/appro/create/' , {

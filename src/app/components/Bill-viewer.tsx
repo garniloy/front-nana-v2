@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const backendUrl = 'https://backend-nana-v2.onrender.com';
-
+const backendUrl = import.meta.env.VITE_API_URL;
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
   console.log(table, body);
@@ -21,7 +20,10 @@ const user = JSON.parse(localStorage.getItem('user') || 'null');
 type ActivityDetail = {
   nb_prod: number;
   nb_serv: number;
-  alements: [string, number, number, number, number][];
+  alements: {name: string, qty: number, total: number, benef: number, pv: number, commission: number|null}[];
+  sellerName: string;    
+  clientName: string;   
+  commission: number
 };
 
 type Activity = {
@@ -112,12 +114,19 @@ export default function Bills() {
   }, []);
 
   async function downloadBill(activity: Activity) {
-    console.log('Downloading bill for activity', activity);
+    
     if (downloading) return;
     setDownloading(activity.id);
     
     try {
-      const res = await fetch(`${backendUrl}/bill/download/${activity.clientKind}/${activity.id}`);
+      console.log('Downloading bill for activity', activity.clientKind, activity.id, activity);
+      const res = await fetch(`${backendUrl}/bill/download/${activity.clientKind}/${activity.id}`,
+        {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({activity : activity}),
+    }
+      );
       if (!res.ok) throw new Error('Échec du téléchargement');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -327,7 +336,7 @@ export default function Bills() {
                 >
                   {/* Avatar */}
                   <div className="avatar">
-                    {getInitials(activity.client)}
+                    {getInitials(activity.details.clientName)}
                   </div>
 
                   {/* Info */}
@@ -350,9 +359,9 @@ export default function Bills() {
                     </div>
                     {/* Article summary */}
                     <div className="row gap-xs wrap">
-                      {activity.details.alements.slice(0, 3).map(([name], i) => (
+                      {activity.details.alements.slice(0, 3).map((a, i) => (
                         <span key={i} className="pill-tag truncate" style={{ maxWidth: '8rem' }}>
-                          {name}
+                          {a.name}
                         </span>
                       ))}
                       {activity.details.alements.length > 3 && (

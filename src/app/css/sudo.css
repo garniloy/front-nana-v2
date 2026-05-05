@@ -491,6 +491,7 @@ input, textarea, select { font: inherit; }
 
 .main{
     width: 100%;
+    border-radius: 1rem;
 }
 
 .office-manager{
@@ -511,9 +512,7 @@ input, textarea, select { font: inherit; }
   max-height: 20rem;
 }
 
-.manager-panel, .office-panel{
- 
-}
+
 
 .office-info, .goal-info{
   display: block;
