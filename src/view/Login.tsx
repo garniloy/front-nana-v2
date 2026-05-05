@@ -2,7 +2,7 @@ import { useState } from 'react';
 import '../css/login.css'
 import { useNavigate } from "react-router-dom";
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 async function fetchUserData(id: string, password: string) {
     const response = await fetch(backendUrl+'/login', {

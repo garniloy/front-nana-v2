@@ -7,7 +7,7 @@ import UserMenu from '../app/components/UserMenu';
 
 import { useState } from 'react';
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 const getDataFromTableWithConstraints = async () => {
     const res = await fetch(backendUrl + '/logout', {

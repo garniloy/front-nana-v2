@@ -615,8 +615,8 @@ const FilterBar = ({
         >
           <option value="">Tous</option>
           <option value="Cash">Cash</option>
-          <option value="Mobile Money">Mobile Money</option>
-          <option value="Virement">Virement</option>
+          <option value="MTN Money">MTN Money</option>
+          <option value="Orange Money">Orange Money</option>
           <option value="Crédit">Crédit</option>
         </select>
       </div>

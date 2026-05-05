@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback} from 'react';
 import OfficeSelector from '../components/Office-selector';
 
 // ── Backend helpers ───────────────────────────────────────────────────────────
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
@@ -40,8 +40,8 @@ async function deleteDataFromTable(table:string, fields: object) {
 
 // ── User ──────────────────────────────────────────────────────────────────────
 const user = JSON.parse(localStorage.getItem('user') || 'null');
-const isSuperUser = user?.role === 'superuser' || user?.owner === true;
-const showOfficeSelector = user.role === 'superuser' || user.owner === true;
+
+
 
 // ── Table definitions ─────────────────────────────────────────────────────────
 type ColDef = { key: string; label: string; type?: string; readonly?: boolean; options?: string[] };
@@ -239,6 +239,8 @@ function RowModal({
   /** The office that will be stamped on new rows (superuser-selected or user's own office) */
   resolvedOffice: string;
 }) {
+  const isSuperUser = user?.role === 'superuser' || user?.owner === true;
+
   const isNew = row === null;
 
   // Pre-fill office field for new rows so the user sees it and can't accidentally blank it
@@ -450,6 +452,7 @@ function DeleteModal({
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      console.log('constraints: ', { [table.pkField]: row[table.pkField] })
       const res = await deleteDataFromTable(table.name, {
         constraints: { [table.pkField]: row[table.pkField] },
       });
@@ -497,6 +500,8 @@ function TablePanel({
   /** Empty string = no filter (superuser sees all); non-empty = filter to that office */
   selectedOffice: string;
 }) {
+  const isSuperUser = user?.role === 'superuser' || user?.owner === true;
+
   const [rows, setRows]           = useState<Row[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
@@ -742,6 +747,9 @@ function TablePanel({
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DataViewer() {
+  const isSuperUser = user?.role === 'superuser' || user?.owner === true;
+  const showOfficeSelector = isSuperUser;
+
   const [activeIdx, setActiveIdx] = useState(0);
   const [mounted, setMounted] = useState<Set<number>>(new Set([0]));
   const [selectedOffice, setSelectedOffice] = useState('');

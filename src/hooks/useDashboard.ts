@@ -15,7 +15,7 @@ import type {
 // CONFIG
 // ─────────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_URL;
+const API_BASE ='https://backend-nana-v2.onrender.com/api';
 
 // ─────────────────────────────────────────────────────────────────
 // HELPERS

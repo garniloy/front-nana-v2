@@ -1,6 +1,6 @@
 
 // url backend here
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 // globale functions here
 

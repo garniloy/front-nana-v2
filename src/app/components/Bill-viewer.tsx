@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
   console.log(table, body);

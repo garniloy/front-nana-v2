@@ -1,4 +1,4 @@
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
     const res = await fetch(backendUrl + '/crud/getwith/' + table, {
