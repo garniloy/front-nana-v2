@@ -5,6 +5,26 @@ import OfficeSelector from '../components/Office-selector';
 // ── Backend helpers ───────────────────────────────────────────────────────────
 const backendUrl = 'https://backend-nana-v2.onrender.com';
 
+/*
+
+{
+    name: 'activity', label: 'Activités', crud: false, pkField: 'id', officeField: 'office',
+    columns: [
+      { key: 'id',             label: 'ID',         readonly: true },
+      { key: 'seller',         label: 'Vendeur' },
+      { key: 'client',         label: 'Client' },
+      { key: 'payment_mode',   label: 'Paiement' },
+      { key: 'total_amount',   label: 'Montant',    type: 'number' },
+      { key: 'total_benefice', label: 'Bénéfice',   type: 'number' },
+      { key: 'total_pv',       label: 'PV',         type: 'number' },
+      { key: 'office',         label: 'Bureau' },
+      { key: 'date',           label: 'Date' },
+      { key: 'bill_sent',      label: 'Facture',    type: 'boolean' },
+      { key: 'details',        label: 'Détails',    type: 'json' },
+    ],
+  },
+
+*/
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
   const res = await fetch(`${backendUrl}/crud/getwith/${table}`, {
@@ -39,7 +59,7 @@ async function deleteDataFromTable(table:string, fields: object) {
 
 
 // ── User ──────────────────────────────────────────────────────────────────────
-const user = JSON.parse(localStorage.getItem('user') || 'null');
+
 
 
 
@@ -65,22 +85,6 @@ const TABLES: TableDef[] = [
       { key: 'type',    label: 'Type',     type: 'select', options: ['IN', 'OUT'] },
       { key: 'date',    label: 'Date',     type: 'datetime-local' },
       { key: 'office',  label: 'Bureau' },
-    ],
-  },
-  {
-    name: 'activity', label: 'Activités', crud: false, pkField: 'id', officeField: 'office',
-    columns: [
-      { key: 'id',             label: 'ID',         readonly: true },
-      { key: 'seller',         label: 'Vendeur' },
-      { key: 'client',         label: 'Client' },
-      { key: 'payment_mode',   label: 'Paiement' },
-      { key: 'total_amount',   label: 'Montant',    type: 'number' },
-      { key: 'total_benefice', label: 'Bénéfice',   type: 'number' },
-      { key: 'total_pv',       label: 'PV',         type: 'number' },
-      { key: 'office',         label: 'Bureau' },
-      { key: 'date',           label: 'Date' },
-      { key: 'bill_sent',      label: 'Facture',    type: 'boolean' },
-      { key: 'details',        label: 'Détails',    type: 'json' },
     ],
   },
   {
@@ -239,6 +243,7 @@ function RowModal({
   /** The office that will be stamped on new rows (superuser-selected or user's own office) */
   resolvedOffice: string;
 }) {
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isSuperUser = user?.role === 'superuser' || user?.owner === true;
 
   const isNew = row === null;
@@ -500,6 +505,7 @@ function TablePanel({
   /** Empty string = no filter (superuser sees all); non-empty = filter to that office */
   selectedOffice: string;
 }) {
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isSuperUser = user?.role === 'superuser' || user?.owner === true;
 
   const [rows, setRows]           = useState<Row[]>([]);
@@ -588,13 +594,13 @@ function TablePanel({
   };
 
   return (
-    <div className="col gap-md" style={{ height: '100%' }}>
+    <div className="col gap-md" style={{ height: '100%', width:'100%', maxWidth:'100%' }}>
 
       {/* Office guard banner — shown only to superusers on tables with an officeField */}
       {crudBlocked && table.crud && <OfficeGuardBanner />}
 
       {/* Toolbar */}
-      <div className="row align-center justify-between" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <div className="row align-center justify-between" style={{ flexWrap: 'wrap', gap: 8 , width:'100%', maxWidth:'100%'}}>
         <div className="row align-center gap-sm" style={{ flex: 1, minWidth: 200 }}>
           <input
             className="input"
@@ -624,7 +630,7 @@ function TablePanel({
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, borderRadius: 16 }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, borderRadius: 16, width:'100%', maxWidth:'100%' }}>
         {loading ? (
           <div className="col align-center justify-center" style={{ padding: 48 }}>
             <p className="text-body text-sm">Chargement…</p>
@@ -639,7 +645,7 @@ function TablePanel({
             <p className="text-body text-sm">Aucune donnée.</p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', overflowX:'auto', maxWidth:'100%'}}>
             <thead>
               <tr>
                 {table.columns.map(col => (
@@ -747,6 +753,7 @@ function TablePanel({
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DataViewer() {
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isSuperUser = user?.role === 'superuser' || user?.owner === true;
   const showOfficeSelector = isSuperUser;
 
@@ -764,36 +771,37 @@ export default function DataViewer() {
       className="main"
       data-style="neuro"
       data-mode="light"
-      style={{ width: '100%', height: '100%', display: 'flex', padding: '1.5rem', gap: 0, overflowX: 'auto' }}
+      style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}
     >
-      <div className="col">
+      <div className="col" style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column'  }}>
         {/* Title */}
         <div className="row">
           <div className="col">
             <h1 className="text-heading text-2xl">Base de données</h1>
             <p className="text-body text-sm">
               {isSuperUser
-                ? selectedOffice
-                  ? `Vue filtrée — bureau : ${selectedOffice}`
-                  : 'Vue globale — tous les bureaux'
-                : `Bureau : ${user?.office ?? '—'}`}
+                ? `Vue filtrée — bureau : ${selectedOffice}`
+                  : `Bureau : ${user?.office ?? '—'}`}
             </p>
           </div>
           {showOfficeSelector && (
-            <OfficeSelector
-              onOfficeSelect={(officeName: string) => {
-                setSelectedOffice(officeName);
-              }}
-            />
+            <div style={{ height: '3rem', paddingTop:'15px'}}>
+              <OfficeSelector
+                onOfficeSelect={(officeName: string) => {
+                  setSelectedOffice(officeName);
+                }}
+              />
+            </div>
+            
           )}
         </div>
 
         {/* Tabs */}
         <div
           className="surface"
-          style={{ padding: 0, height: 'auto', borderRadius: '20px 20px 0 0', overflow: 'auto', flexShrink: 0 }}
+          style={{ padding: 0, height: 'auto', borderRadius: '20px 20px 0 0', overflowX: 'auto', flexShrink: 0 , width:'100%'}}
         >
-          <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '2px solid var(--nm-dark)' }}>
+          <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '2px solid var(--nm-dark)', maxHeight:'100%', height:'100%' }}>
             {TABLES.map((t, i) => {
               const active = i === activeIdx;
               return (
@@ -843,8 +851,8 @@ export default function DataViewer() {
         <div
           className="surface"
           style={{
-            borderRadius: '0 0 20px 20px', maxHeight: '18rem',
-            flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto',
+            borderRadius: '0 0 20px 20px',
+            flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto', maxHeight:'100%',
           }}
         >
           {TABLES.map((t, i) =>
@@ -855,7 +863,7 @@ export default function DataViewer() {
                   display: i === activeIdx ? 'flex' : 'none',
                   flexDirection: 'column',
                   flex: 1,
-                  minHeight: 0,
+                  minHeight: "100%",
                   height: '100%',
                 }}
               >

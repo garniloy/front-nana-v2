@@ -1,4 +1,5 @@
 const backendUrl = 'https://backend-nana-v2.onrender.com';
+//const backendUrl = 'http://localhost:3000';
 
 
 async function createDataToTable(table: string, fields: object) {
@@ -117,8 +118,7 @@ function genId() {
   return `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-const user = JSON.parse(localStorage.getItem('user') || 'null');
-const connected = localStorage.getItem('connected');
+
 
 // ─── Commission & benef calculation helpers ────────────────────────────────────
 /**
@@ -228,21 +228,22 @@ type onCloseProps = { onclose: (s: boolean) => void };
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Vente({ onclose }: onCloseProps) {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const connected = localStorage.getItem('connected');
+
 
   useEffect(() => {
     if (!connected || !user) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('connected');
       navigate('/login');
     }
-  }, [connected, user, navigate]);
+  }, [connected, user]);
 
   // ── Remote data ──
   const [stock, setStock]               = useImmer<Stock[]>([] as Stock[]);
   const [prodServList, setProdServList] = useImmer<ProdServ[]>([] as ProdServ[]);
   const [sellers, setSellers]           = useImmer<Seller[]>([] as Seller[]);
   const [clients, setClients]           = useImmer<Client[]>([] as Client[]);
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading]           = useState(false);
 
   // ── Sell state ──
   const [sell, setSell]             = useImmer<SellState>({ ...INITIAL_SELL } as SellState);
@@ -265,7 +266,7 @@ export default function Vente({ onclose }: onCloseProps) {
   const [qtyInput, setQtyInput]         = useState('');
   const [priceInput, setPriceInput]     = useState('');
   const [showDetails, setShowDetails]   = useState(false);
-  const [selectedOffice, setSelectedOffice] = useState('');
+  const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
 
   // ── Errors & submit ──
   const [errors, setErrors]             = useImmer<FormErrors>({} as FormErrors);
@@ -351,7 +352,7 @@ export default function Vente({ onclose }: onCloseProps) {
   }
 
   // ── Fetch data ────────────────────────────────────────────────────────────
-  const fetchAll = useCallback(async (office: string) => {
+  const fetchAll = async (office: string) => {
     setLoading(true);
     try {
       const officeConstraint =
@@ -386,26 +387,54 @@ export default function Vente({ onclose }: onCloseProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => { fetchAll(''); }, [fetchAll]);
+  useEffect(()=>{
+    if(!user.owner || user.role !=='superuser'){
+      setStock([]);
+      setProdServList([]);
+      setSellers([]);
+      setClients([]);
+      resetSell();
+      fetchAll(user.office);
+      const ownerId    = String(user?.promoted_by ?? '');
+      const officeName = user?.owner || user?.role === 'superuser'
+        ? selectedOffice
+        : user?.office ?? '';
+
+      if (ownerId) {
+          setSell((d: SellState) => {
+              d.seller             = ownerId;
+              d.details.sellerName = officeName;
+          });
+      }
+    }
+  },[])
 
   useEffect(() => {
-    setStock([]); setProdServList([]); setSellers([]); setClients([]);
+    
+    // null = OfficeSelector n'a pas encore notifié → ne rien faire
+    if (selectedOffice === null) return;
+
+    setStock([]);
+    setProdServList([]);
+    setSellers([]);
+    setClients([]);
     resetSell();
     fetchAll(selectedOffice);
-    // Pre-fill owner as default seller after reset (no guard needed — sell was just cleared)
+
     const ownerId    = String(user?.promoted_by ?? '');
     const officeName = user?.owner || user?.role === 'superuser'
-      ? selectedOffice
-      : user?.office ?? '';
+        ? selectedOffice
+        : user?.office ?? '';
+
     if (ownerId) {
-      setSell((d: SellState) => {
-        d.seller             = ownerId;
-        d.details.sellerName = officeName;
-      });
+        setSell((d: SellState) => {
+            d.seller             = ownerId;
+            d.details.sellerName = officeName;
+        });
     }
-  }, [selectedOffice]);
+}, [selectedOffice||""]);
 
   // ── Re-run recomputeAll whenever clientKind or sellerObj changes ──────────
   // This is the reactive hook that makes the form "react immediately":
@@ -528,7 +557,7 @@ export default function Vente({ onclose }: onCloseProps) {
           d.sellerObj          = ownerForSale as typeof d.sellerObj;
           d.seller             = ownerForSale.id;
           d.office             = ownerForSale.office;
-          d.details.sellerName = user?.owner || user?.role === 'superuser' ? selectedOffice : user?.office ?? '';
+          d.details.sellerName = user?.owner || user?.role === 'superuser' ? selectedOffice || ''||"" : user?.office ?? '';
         }
         // Immediate full recompute at distributor prices
         recomputeAll(d, 'distributor', ownerForSale?.id ?? d.seller, prodServList);
@@ -718,7 +747,7 @@ function removeItem(idx: number) {
 
     setIsSubmitting(true); setSubmitStatus(null);
     try {
-      const now = new Date().toISOString();
+      const now = 'now()';
       const id  = genId();
       const activity = {
         id,
@@ -728,10 +757,12 @@ function removeItem(idx: number) {
         payment_mode:   sell.payment_mode,
         total_amount:   sell.total_amount,
         total_benefice: sell.total_benefice,
-        office:         user.owner || user.role ==='superuser'? selectedOffice : user.office,
+        office:         user.owner || user.role ==='superuser'? selectedOffice || '' || '' : user.office,
         date:           now,
         bill_sent:      false,
         total_pv:       sell.total_pv,
+        waiting_reglement: sell.payment_mode === "attente_paiement" || sell.payment_mode === "paiement_livraison"? true : false,
+        date_reglement: sell.payment_mode === "attente_paiement" || sell.payment_mode === "paiement_livraison"? null : now,
         details:        sell.details,   // includes commission
       };
 
@@ -739,14 +770,14 @@ function removeItem(idx: number) {
         id:      id,
         name:    sell.details.clientName || sell.client || 'Inconnu',
         amount:  sell.total_amount,
-        office:  user.owner || user.role === 'superuser' ? selectedOffice : user.office,
+        office:  user.owner || user.role === 'superuser' ? selectedOffice || '' : user.office,
         manager: user.id,
       };
       
 
       console.log(activity, newSellEntry)
       const response = await createSellData({
-        office:   user.owner || user.role === 'superuser' ? selectedOffice : user.office,
+        office:   user.owner || user.role === 'superuser' ? selectedOffice || '' : user.office,
         sell:     newSellEntry,   // ← use the local value
         activity,
       });
@@ -775,14 +806,7 @@ function removeItem(idx: number) {
 
   
 
-  if (loading) {
-    return (
-      <div className="w-full h-full col align-center justify-center gap-md" data-style="neuro" data-mode="light">
-        <div className="vente-spinner" />
-        <p className="text-label">Chargement des données…</p>
-      </div>
-    );
-  }
+ 
 
   const isPriceLocked = sell.clientKind === 'distributor';
   const commissionSummary = sell.details.commission;
@@ -792,11 +816,42 @@ function removeItem(idx: number) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap');
 
-        .vente-root { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-        .vente-header { display: flex; align-items: center; gap: 0.5rem; padding: var(--padding-sm); border-bottom: 1px solid var(--nm-dark); flex-shrink: 0; }
-        .vente-main { display: grid; grid-template-columns: 300px 1fr; flex: 1; min-height: 0; overflow: hidden; }
+        .vente-root {
+          width: 100%;
+          height: 100%;
+          min-height: 100%;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
 
-        .step-side { display: flex; gap: var(--gap-lg); padding: var(--padding-lg); border-right: 1px solid var(--nm-dark); overflow-y: auto; min-height: 0; }
+        .vente-main {
+          flex: 1;
+          min-height: 0;
+          min-width: 0;
+
+          display: grid;
+          grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+
+          overflow: hidden;
+        }
+        .vente-header { display: flex; align-items: center; gap: 0.5rem; padding: var(--padding-sm); border-bottom: 1px solid var(--nm-dark); flex-shrink: 0; }
+        
+
+        .step-side {
+          display: flex;
+          gap: var(--gap-lg);
+
+          padding: clamp(12px, 2vw, 24px);
+
+          border-right: 1px solid var(--nm-dark);
+
+          overflow-y: auto;
+          overflow-x: hidden;
+
+          min-height: 0;
+          min-width: 0;
+        }
         .step-tracker { display: flex; flex-direction: column; align-items: center; padding-top: 0.25rem; flex-shrink: 0; width: 28px; }
         .step-node    { display: flex; flex-direction: column; align-items: center; }
         .step-line    { width: 2px; height: 52px; background: var(--nm-dark); border-radius: 2px; transition: background var(--duration-normal) var(--ease-out); }
@@ -807,13 +862,39 @@ function removeItem(idx: number) {
         .step-check { font-size: 0.7rem; }
         .step-num   { font-size: 0.6rem; }
 
-        .fields { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-        .field-block { display: flex; flex-direction: column; gap: var(--gap-xs); height: 102px; justify-content: center; position: relative; }
+        .fields {
+          flex: 1;
 
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+
+          min-width: 0;
+          width: 100%;
+        }
+        .field-block {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+
+          min-height: fit-content;
+
+          justify-content: flex-start;
+
+          position: relative;
+
+          width: 100%;
+        }
         .vente-input-error  { box-shadow: inset 4px 4px 8px var(--nm-dark), inset -4px -4px 8px var(--nm-light), 0 0 0 2px var(--clr-danger-500) !important; }
         .vente-input-ok     { box-shadow: inset 4px 4px 8px var(--nm-dark), inset -4px -4px 8px var(--nm-light), 0 0 0 2px var(--clr-accent-600) !important; }
         .vente-input-locked { box-shadow: inset 4px 4px 8px var(--nm-dark), inset -4px -4px 8px var(--nm-light) !important; opacity: 0.7; cursor: not-allowed; }
-
+        .input,
+          select.input,
+          textarea.input {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+          }
         .input-wrap { position: relative; }
         .suggestion-popup { position: absolute; top: calc(100% + var(--gap-xs)); left: 0; right: 0; background: var(--nm-bg); border-radius: var(--radius-xl); box-shadow: 8px 8px 16px var(--nm-dark), -8px -8px 16px var(--nm-light); z-index: var(--z-dropdown); overflow: hidden; max-height: 200px; overflow-y: auto; }
         .suggestion-item { padding: var(--padding-xs); font-size: var(--text-sm); color: var(--nm-text-strong); cursor: pointer; transition: var(--transition-colors); }
@@ -831,7 +912,8 @@ function removeItem(idx: number) {
         .s-item p { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wider); color: var(--nm-text); margin: 0; }
         .s-nb    { font-family: 'Syne', sans-serif; font-weight: var(--weight-black); font-size: var(--text-2xl); color: var(--nm-text-strong); line-height: 1; }
         .s-sep   { width: 1px; height: 40px; box-shadow: 1px 0 0 var(--nm-light), -1px 0 0 var(--nm-dark); }
-        .total-wrap { flex: 1.5; display: flex; flex-direction: column; gap: var(--gap-xs); }
+        .total-wrap { display: flex; }
+        .olone{flex: 1; display: flex; flex-direction: column; }
         .total-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wider); color: var(--nm-text); }
         .total-val   { font-family: 'Syne', sans-serif; font-weight: var(--weight-bold); font-size: var(--text-md); color: var(--nm-brand); }
 
@@ -855,8 +937,33 @@ function removeItem(idx: number) {
           box-shadow: inset 2px 2px 4px var(--nm-dark), inset -2px -2px 4px var(--nm-light);
         }
 
-        .sell-form-side { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-        .summary-bar { display: flex; align-items: center; gap: var(--gap-lg); padding: var(--padding-md); border-bottom: 1px solid var(--nm-dark); flex-shrink: 0; }
+        .sell-form-side {
+          display: flex;
+          flex-direction: column;
+
+          overflow: hidden;
+
+          min-height: 0;
+          min-width: 0;
+
+          width: 100%;
+        }
+        .summary-bar {
+          display: flex;
+          flex-wrap: wrap;
+
+          align-items: center;
+
+          gap: 1rem;
+
+          padding: clamp(12px, 2vw, 20px);
+
+          border-bottom: 1px solid var(--nm-dark);
+
+          flex-shrink: 0;
+
+          width: 100%;
+        }
         .sbar-group { display: flex; align-items: center; gap: var(--gap-sm); }
         .sbar-icon  { width: 32px; height: 32px; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); box-shadow: 3px 3px 6px var(--nm-dark), -3px -3px 6px var(--nm-light); background: var(--nm-bg); }
         .sbar-val   { font-family: 'Syne', sans-serif; font-weight: var(--weight-bold); font-size: var(--text-base); color: var(--nm-text-strong); line-height: 1; }
@@ -868,13 +975,46 @@ function removeItem(idx: number) {
         .detail-toggle.active { box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light); color: var(--nm-brand); }
 
         .form-details { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-        .prod-form { display: grid; grid-template-columns: 1fr 100px 100px auto; gap: var(--gap-md); align-items: end; padding: var(--padding-md); border-bottom: 1px solid var(--nm-dark); flex-shrink: 0; }
+        .prod-form {
+          display: grid;
+
+          grid-template-columns:
+            minmax(0, 1fr)
+            minmax(90px, 120px)
+            minmax(110px, 140px)
+            auto;
+
+          gap: 1rem;
+
+          align-items: end;
+
+          padding: clamp(12px, 2vw, 20px);
+
+          border-bottom: 1px solid var(--nm-dark);
+
+          flex-shrink: 0;
+
+          width: 100%;
+          min-width: 0;
+        }
         .prod-form-group { display: flex; flex-direction: column; gap: var(--gap-xs); }
 
         .stock-badge { display: flex; align-items: center; gap: var(--gap-xs); font-size: var(--text-xs); color: var(--nm-text); margin-top: var(--gap-xs); }
         .stock-dot   { width: 6px; height: 6px; border-radius: var(--radius-full); background: var(--clr-accent-600); display: inline-block; }
 
-        .details-panel { flex: 1; overflow-y: auto; padding: var(--padding-md); min-height: 0; }
+        .details-panel {
+          flex: 1;
+
+          overflow-y: auto;
+          overflow-x: hidden;
+
+          padding: clamp(12px, 2vw, 20px);
+
+          min-height: 0;
+          min-width: 0;
+
+          width: 100%;
+        }
 
         .color-legend { display: flex; gap: var(--gap-lg); margin-bottom: var(--gap-md); padding: var(--padding-xs); border-radius: var(--radius-xl); width: fit-content; box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light); }
         .legend-item  { display: flex; align-items: center; gap: var(--gap-xs); font-size: var(--text-xs); color: var(--nm-text); text-transform: uppercase; letter-spacing: var(--tracking-wider); }
@@ -885,7 +1025,34 @@ function removeItem(idx: number) {
         .boule-comm   { background: #0d65f2; }
 
         .details-list { display: flex; flex-direction: column; gap: var(--gap-sm); }
-        .detail-item { display: grid; grid-template-columns: 1fr 28px auto auto auto 1fr auto; align-items: center; gap: var(--gap-sm); padding: var(--padding-sm); border-radius: var(--radius-xl); background: var(--nm-bg); box-shadow: 5px 5px 10px var(--nm-dark), -5px -5px 10px var(--nm-light); transition: var(--transition-shadow); animation: fadeUp var(--duration-normal) var(--ease-out); }
+        .detail-item {
+          display: grid;
+
+          grid-template-columns:
+            minmax(120px, 1fr)
+            32px
+            auto
+            auto
+            auto
+            minmax(140px, 1fr)
+            auto;
+
+          align-items: center;
+
+          gap: 0.75rem;
+
+          padding: 1rem;
+
+          min-width: 0;
+
+          border-radius: var(--radius-xl);
+
+          background: var(--nm-bg);
+
+          box-shadow:
+            5px 5px 10px var(--nm-dark),
+            -5px -5px 10px var(--nm-light);
+        }
         .detail-item:hover { box-shadow: 7px 7px 14px var(--nm-dark), -7px -7px 14px var(--nm-light); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .di-name  { font-size: var(--text-sm); color: var(--nm-text-strong); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -894,7 +1061,17 @@ function removeItem(idx: number) {
         .di-type.serv { color: var(--clr-accent-600); }
         .di-val   { display: flex; align-items: center; gap: var(--gap-xs); font-size: var(--text-sm); color: var(--nm-text-strong); }
         .di-val .boule { width: 7px; height: 7px; }
-        .di-rowsum { display: flex; gap: var(--gap-sm); justify-content: flex-end; flex-wrap: wrap; }
+        .di-rowsum {
+          display: flex;
+
+          flex-wrap: wrap;
+
+          justify-content: flex-end;
+
+          gap: 0.5rem;
+
+          min-width: 0;
+        }
         .di-chip   { font-size: var(--text-xs); padding: 0.2rem 0.5rem; border-radius: var(--radius-full); display: flex; align-items: center; gap: var(--gap-xs); white-space: nowrap; font-weight: var(--weight-medium); box-shadow: inset 2px 2px 4px var(--nm-dark), inset -2px -2px 4px var(--nm-light); color: var(--nm-text); }
         .di-chip.pvt   { color: var(--clr-accent-700); }
         .di-chip.prit  { color: var(--clr-warning-500); }
@@ -908,11 +1085,70 @@ function removeItem(idx: number) {
         .vente-spinner { width: 32px; height: 32px; border-radius: var(--radius-full); box-shadow: 4px 4px 8px var(--nm-dark), -4px -4px 8px var(--nm-light); animation: spin 1s var(--ease-inout) infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        @media (max-width: 860px) {
-          .vente-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-          .step-side  { border-right: none; border-bottom: 1px solid var(--nm-dark); overflow-y: visible; }
-          .prod-form  { grid-template-columns: 1fr auto; }
-          .prod-form .qty-group, .prod-form .price-group { display: none; }
+        @media (max-width: 1100px) {
+
+          .vente-main {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr;
+          }
+
+          .step-side {
+            border-right: none;
+            border-bottom: 1px solid var(--nm-dark);
+
+            max-height: none;
+          }
+
+          .summary-bar {
+            justify-content: flex-start;
+          }
+
+          .detail-item {
+            grid-template-columns: 1fr;
+            align-items: flex-start;
+          }
+
+          .di-rowsum {
+            justify-content: flex-start;
+          }
+        }
+
+        @media (max-width: 768px) {
+
+          .vente-header {
+            flex-wrap: wrap;
+            gap: 1rem;
+          }
+
+          .prod-form {
+            grid-template-columns: 1fr;
+          }
+
+          .qty-group,
+          .price-group {
+            display: flex !important;
+          }
+
+          .summary-bar {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .sbar-total {
+            margin-left: 0;
+            text-align: left;
+          }
+
+          .sell-summary {
+            flex-direction: column;
+            align-items: stretch;
+            height: auto;
+            padding: 1rem;
+          }
+
+          .s-sep {
+            display: none;
+          }
         }
       `}</style>
 
@@ -926,11 +1162,26 @@ function removeItem(idx: number) {
               {changeView ? 'Afficher le formulaire' : 'Afficher les détails'}
             </button>
           </div>
-          <OfficeSelector onOfficeSelect={(officeName) => setSelectedOffice(officeName)} />
+          {user.owner || user.role === 'superuser' && <OfficeSelector  onOfficeSelect={(officeName) => setSelectedOffice(officeName)} />}
           <button className="btn" onClick={() => onclose?.(true)}>back</button>
         </div>
+        {loading && (
+          <div
+            className="col align-center justify-center gap-md"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 10,
+              background: 'rgba(var(--nm-bg-rgb, 235,235,235), 0.75)',
+              backdropFilter: 'blur(2px)',
+            }}
+          >
+            <div className="vente-spinner" />
+            <p className="text-label">Chargement des données…</p>
+          </div>
+        )}
 
-        {changeView && <Bills />}
+        {changeView && <Bills office={user.owner || user.role ==='superuser'? selectedOffice || '' || '' : user.office} />}
         {!changeView && (
           <div className="vente-main">
 
@@ -1005,6 +1256,7 @@ function removeItem(idx: number) {
                     <option value="Cash">Cash</option>
                     <option value="MTN Money">MTN Money</option>
                     <option value="Orange Money">Orange Money</option>
+                    <option value="attente_paiement">paiement en attente</option>
                   </select>
                   {errors.payment && <span className="badge badge-danger">{errors.payment}</span>}
                 </div>
@@ -1012,16 +1264,17 @@ function removeItem(idx: number) {
                 {/* Résumé */}
                 <div className="field-block" style={{ height: 'auto', paddingTop: 'var(--gap-sm)' }}>
                   <label className="text-label">Résumé</label>
-                  <div className="surface-inset sell-summary">
-                    <div className="s-item"><p>Produits</p><div className="s-nb">{sell.details.nb_prod}</div></div>
-                    <div className="s-sep" />
-                    <div className="s-item"><p>Services</p><div className="s-nb">{sell.details.nb_serv}</div></div>
-                    <div className="s-sep" />
-                    <div className="total-wrap">
-                      <span className="total-label">Total</span>
-                      <span className="total-val">{sell.total_amount.toLocaleString()} F</span>
-                      <span className="total-label" style={{ marginTop: 'var(--gap-xs)' }}>Bénéfice</span>
-                      <span className="total-val text-sm">{sell.total_benefice.toLocaleString()} F</span>
+                  <div className=" sell-summary" >
+                    <div className="total-wrap surface-inset" style={{width:'100%'}}>
+                      <div className="olone">
+                        <span className="total-label">Total</span>
+                        <span className="total-val">{sell.total_amount.toLocaleString()} F</span>
+                      </div>
+                      <div className="olone">
+                        <span className="total-label">Bénéfice</span>
+                        <span className="total-val text-sm">{sell.total_benefice.toLocaleString()} F</span>
+                      </div>
+                      
                     </div>
                   </div>
 

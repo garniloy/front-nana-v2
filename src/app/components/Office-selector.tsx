@@ -1,3 +1,9 @@
+// OfficeSelector.tsx
+import '../css/form.css';
+import '../css/sudo.css';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 const backendUrl = 'https://backend-nana-v2.onrender.com';
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
@@ -6,17 +12,13 @@ const getDataFromTableWithConstraints = async (table: string, body: object) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    const data = await res.json();
-    return data;
+    return res.json();
 };
 
-const user = JSON.parse(localStorage.getItem('user') || 'null');
-const connected = localStorage.getItem('connected');
 
-type Office = {
-    id: number;
-    name: string;
-};
+
+
+type Office = { id: number; name: string };
 
 type OfficeSelectorProps = {
     offices?: Office[];
@@ -24,60 +26,52 @@ type OfficeSelectorProps = {
     onOfficeSelect?: (officeName: string) => void;
 };
 
-import '../css/sudo.css';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
 export default function OfficeSelector({
     offices = [],
     gave = false,
     onOfficeSelect,
 }: OfficeSelectorProps) {
     const navigate = useNavigate();
-    const [officeList, setOffices] = useState<Office[]>([]);
+    const [officeList, setOfficeList] = useState<Office[]>([]);
     const [selectedOffice, setSelectedOffice] = useState('');
     const [error, setError] = useState('');
 
-    // Redirect if not connected
+    // ── garde pour n'appeler onOfficeSelect qu'UNE SEULE FOIS à l'init ──
+    const initializedRef = useRef(false);
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const connected = localStorage.getItem('connected');
+
     useEffect(() => {
         if (!connected || !user) {
-            localStorage.removeItem('user');
-            localStorage.removeItem('connected');
-            navigate('/login');
+            navigate('/login')
         }
-    }, []);
+    }, [user, connected]);
 
-    // Case 1: offices provided by parent — sync whenever the prop changes.
-    // `offices` is an array prop so its reference is stable as long as the parent
-    // doesn't re-create it inline (e.g. gave={true} offices={myStateArray} is fine;
-    // gave={true} offices={[...]} literal would still loop — that's the caller's responsibility).
+    // Case 1 : liste fournie par le parent
     useEffect(() => {
         if (gave !== true) return;
-        setOffices(offices);
+        setOfficeList(offices);
+        initializedRef.current = false; // reset si la liste change
     }, [gave, offices]);
 
-    // Case 2: fetch from API — runs once on mount only.
-    // We intentionally omit `gave` from deps: it is a mount-time decision and
-    // cannot change without unmounting the component anyway.
+    // Case 2 : fetch depuis l'API — une seule fois au montage
     useEffect(() => {
         if (gave === true) return;
 
         const field = {
             fields: ['id', 'name'],
             constraints: {
-                owner: user.owner ? user.id : user.promoted_by,
+                owner: user?.owner ? user?.id : user?.promoted_by,
                 is_deleted: false,
             },
         };
 
         const fetchdata = async () => {
             try {
-                console.log(field);
                 const data = await getDataFromTableWithConstraints('office', field);
-                console.log(data);
                 if (data.success === true) {
                     if (data.list.length > 0) {
-                        setOffices(data.list);
+                        setOfficeList(data.list);
                     } else {
                         setError('Aucun bureau disponible');
                     }
@@ -85,21 +79,24 @@ export default function OfficeSelector({
                     setError(`Un problème est survenu: ${data.message}`);
                 }
             } catch {
-                setError('Un problème est survenu 2');
+                setError('Un problème est survenu');
             }
         };
 
         fetchdata();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Auto-select the first office and notify the parent whenever the list is (re)loaded
+    // Auto-sélection du PREMIER bureau — une seule fois après le chargement
     useEffect(() => {
         if (officeList.length === 0) return;
+        if (initializedRef.current) return; // ← ne pas réinitialiser si déjà fait
+        initializedRef.current = true;
+
         const firstName = officeList[0].name;
         setSelectedOffice(firstName);
-        // Use firstName directly — reading selectedOffice here would be a stale closure
         onOfficeSelect?.(firstName);
-    }, [officeList]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [officeList]);
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const name = e.target.value;
@@ -108,24 +105,25 @@ export default function OfficeSelector({
     };
 
     return (
-        <div className="btn">
-            {!error && (
-                <div className="list">
-                    <select
-                        name="select-office"
-                        id="select-office"
-                        value={selectedOffice}
-                        onChange={handleChange}
-                    >
-                        {officeList.map((office: Office) => (
-                            <option key={office.id} value={office.name}>
-                                {office.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+        <div className="btn" data-style="neuro" data-mode="light">
+            {!error ? (
+                <select
+                    name="select-office"
+                    id="select-office"
+                    value={selectedOffice}
+                    onChange={handleChange}
+                    className="btn btn-ghost text-sm"
+                    style={{ border: 'none' }}
+                >
+                    {officeList.map((office) => (
+                        <option key={office.id} value={office.name}>
+                            {office.name}
+                        </option>
+                    ))}
+                </select>
+            ) : (
+                <p>{error}</p>
             )}
-            {error && <p>{error}</p>}
         </div>
     );
 }

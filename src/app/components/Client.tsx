@@ -27,7 +27,7 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 // create data in any table
 async function createDataToTable(table: string, fields: object) {
 
-    const response = await fetch(backendUrl + 'create/' + table, {
+    const response = await fetch(backendUrl + '/crud/create/' + table, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -124,8 +124,7 @@ async function createDataToTable(table: string, fields: object) {
           </div>
 */
 // global actions
-const user = JSON.parse(localStorage.getItem("user") || "null");
-const connected = localStorage.getItem("connected");
+
 
 
 // imports
@@ -181,6 +180,8 @@ type onCloseProps = {onclose :(s:boolean) => void}
 
 export default function client({onclose}: onCloseProps) {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const connected = localStorage.getItem("connected");
 
   useEffect(() => {
     if (!connected || !user) {
@@ -232,7 +233,7 @@ export default function client({onclose}: onCloseProps) {
   const validate = () => {
     const newErrors: any = {};
     
-    if (!validateRequired(newClient.name)) setnewClient(dr => { dr.name = user.promoted_by });
+    if (!validateRequired(newClient.seller)) setnewClient(dr => { dr.seller = user.promoted_by });
     if(phoneNumber.length  <= 8 || isNaN(Number(phoneNumber))) newErrors.phone = "Numéro de téléphone invalide";
     if (!validateRequired(newClient.office)) setnewClient(dr => { dr.office = user.owner ? selectedOffice : user.office; });
     if (!newClient.age || isNaN(Number(newClient.age))) newErrors.age = "Âge invalide";
@@ -240,7 +241,7 @@ export default function client({onclose}: onCloseProps) {
     return Object.keys(newErrors).length === 0;
   };
   const showOfficeSelector =
-        user.role === 'superuser' || user.owner === true;
+        user?.role === 'superuser' || user?.owner === true;
 
   
   
@@ -250,18 +251,27 @@ export default function client({onclose}: onCloseProps) {
     if (!validate()) return;
     setLoading(true);
     try {
-      
-      const data = await createDataToTable('client', newClient);
+      const newclientobjet = {
+        age: newClient.age,
+        created_at:"now()",
+        name: newClient.name,
+        office: user.owner || user.role === 'superuser'? selectedOffice:user.office,
+        phone: theCnuntry + phoneNumber,
+        seller: !newClient.seller? user.promoted_by: newClient.seller,
+        sexe: newClient.sexe
+      }
+      const data = await createDataToTable('client', newclientobjet);
       if (data.success === false) throw new Error(data.message || "Error");
       setSuccess("Client enregistré avec succès");
       resetClient();
-      setnewClient(dr => { dr.phone = '' });
+      setPhoneNumber('');
+      setTheCountry('');
     } catch (err: any) {
       setErrors({ global: err.message });
     } finally {
       setLoading(false);
-      //setTimeout(() => setErrors({}), 3000);
-      //setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setErrors({}), 3000);
+      setTimeout(() => setSuccess(''), 3000);
     }
   };
 
@@ -269,11 +279,12 @@ export default function client({onclose}: onCloseProps) {
 
   return (
     <main
-      className="main col align-center justify-center p-xl"
+      className=" col align-center justify-center"
       data-style="neuro"
       data-mode="light"
+      style={{width: '100%', height: '100%', overflow: 'hidden' }}
     >
-      <div className="surface col gap-lg" style={{ width: '100%', height:'100%', overflow:'auto' }}>
+      <div className="surface col gap-lg" style={{ width: '100%', height:'100%' }}>
         <div className="row align-center justify-between">
           <div className="col gap-xs">
             <h2 className="text-heading text-2xl">Nouveau client</h2>
@@ -294,92 +305,95 @@ export default function client({onclose}: onCloseProps) {
         <div className="divider" />
 
         
-
-        {/* Name */}
-        <div className="col gap-xs">
-          <label className="text-label">Nom</label>
-          <input className="input" placeholder="Nom complet" value={newClient.name}
-            onChange={(e) => setnewClient(dr => { dr.name = e.target.value })} />
-          {errors.name && <span className="badge badge-danger">{errors.name}</span>}
-        </div>
-
-        {/* Sex */}
-        <div className="col gap-xs">
-          <label className="text-label">Sexe</label>
-          <div className="row gap-md">
-            <button
-              className={`btn w-full justify-center${newClient.sexe === 'm' ? ' btn-primary' : ''}`}
-              onClick={() => setnewClient(dr => { dr.sexe = 'm' })}
-            >
-              Homme
-            </button>
-            <button
-              className={`btn w-full justify-center${newClient.sexe === 'f' ? ' btn-primary' : ''}`}
-              onClick={() => setnewClient(dr => { dr.sexe = 'f' })}
-            >
-              Femme
-            </button>
-          </div>
-        </div>
-
-        {/* Phone */}
-        <div className="col gap-xs">
-          <label className="text-label">Téléphone</label>
-          <div className="row gap-sm align-center">
-            <div
-              className="btn"
-              style={{ minWidth: '5rem', justifyContent: 'center' , cursor:'pointer'}}
-              onClick={() => setShowCountries(!showCountries)}
-            >
-              {theCnuntry || 'Pays'}
-            </div>
-            <input
-              className="input w-full"
-              placeholder="6XX XXX XXX"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
-          </div>
-          {showCountries && (
-            <div className="surface-inset col gap-xs" style={{ maxHeight: '12rem', overflowY: 'auto' }}>
-              {countries.map((c) => (
-                <div
-                  key={c.code}
-                  className="btn btn-ghost text-sm"
-                  onClick={() => { setTheCountry(c.code); setShowCountries(false); }}
-                  style={{cursor:'pointer'}}
-                >
-                  {c.code} {c.name}
-                </div>
-              ))}
-            </div>
-          )}
-          {errors.phone && <span className="badge badge-danger">{errors.phone}</span>}
-        </div>
-
-        {/* Age */}
-        <div className="col gap-xs">
-          <label className="text-label">Âge</label>
-          <input className="input" placeholder="Âge" value={newClient.age}
-            onChange={(e) => setnewClient(dr => { dr.age = e.target.value })} />
-          {errors.age && <span className="badge badge-danger">{errors.age}</span>}
-        </div>
-
+        <div className="form-field"
+        style={{overflow:'auto', padding:'0.3rem'}}
         
+        >
+          {/* Name */}
+          <div className="col gap-xs">
+            <label className="text-label">Nom</label>
+            <input className="input" placeholder="Nom complet" value={newClient.name}
+              onChange={(e) => setnewClient(dr => { dr.name = e.target.value })} />
+            {errors.name && <span className="badge badge-danger">{errors.name}</span>}
+          </div>
 
-        {/* Vendeur */}
-        <div className="col gap-xs">
-          <label className="text-label">Vendeur</label>
-          <input className="input" placeholder="Vendeur" value={newClient.seller}
-            onChange={(e) => setnewClient(dr => { dr.seller = e.target.value })} />
-        </div>
+          {/* Sex */}
+          <div className="col gap-xs">
+            <label className="text-label">Sexe</label>
+            <div className="row gap-md">
+              <button
+                className={`btn w-full justify-center${newClient.sexe === 'm' ? ' btn-primary' : ''}`}
+                onClick={() => setnewClient(dr => { dr.sexe = 'm' })}
+              >
+                Homme
+              </button>
+              <button
+                className={`btn w-full justify-center${newClient.sexe === 'f' ? ' btn-primary' : ''}`}
+                onClick={() => setnewClient(dr => { dr.sexe = 'f' })}
+              >
+                Femme
+              </button>
+            </div>
+          </div>
 
-        {/* Office */}
-        <div className="col gap-xs">
-          <label className="text-label">Bureau</label>
-          <input disabled  className="input"  placeholder={selectedOffice} value={newClient.office}
-            onChange={(e) => setnewClient(dr => { dr.office = e.target.value })} />
+          {/* Phone */}
+          <div className="col gap-xs">
+            <label className="text-label">Téléphone</label>
+            <div className="row gap-sm align-center">
+              <div
+                className="btn"
+                style={{ minWidth: '5rem', justifyContent: 'center' , cursor:'pointer'}}
+                onClick={() => setShowCountries(!showCountries)}
+              >
+                {theCnuntry || 'Pays'}
+              </div>
+              <input
+                className="input w-full"
+                placeholder="6XX XXX XXX"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            </div>
+            {showCountries && (
+              <div className="surface-inset col gap-xs" style={{ maxHeight: '12rem', overflowY: 'auto' }}>
+                {countries.map((c) => (
+                  <div
+                    key={c.code}
+                    className="btn btn-ghost text-sm"
+                    onClick={() => { setTheCountry(c.code); setShowCountries(false); }}
+                    style={{cursor:'pointer'}}
+                  >
+                    {c.code} {c.name}
+                  </div>
+                ))}
+              </div>
+            )}
+            {errors.phone && <span className="badge badge-danger">{errors.phone}</span>}
+          </div>
+
+          {/* Age */}
+          <div className="col gap-xs">
+            <label className="text-label">Âge</label>
+            <input className="input" placeholder="Âge" value={newClient.age}
+              onChange={(e) => setnewClient(dr => { dr.age = e.target.value })} />
+            {errors.age && <span className="badge badge-danger">{errors.age}</span>}
+          </div>
+
+          {/* Vendeur */}
+          <div className="col gap-xs">
+            <label className="text-label">Vendeur</label>
+            <input className="input" placeholder="Vendeur" value={newClient.seller}
+              onChange={(e) => setnewClient(dr => { dr.seller = e.target.value })} />
+          </div>
+
+          {/* Office */}
+          <div className="col gap-xs">
+            <label className="text-label">Bureau</label>
+            <input disabled  className="input"  placeholder={user.owner || user.role === 'superuser' ? selectedOffice : user.office} value={newClient.office}
+              onChange={(e) => setnewClient(dr => { dr.office = e.target.value })} />
+          </div>
         </div>
+        
 
         <div className="divider" />
 

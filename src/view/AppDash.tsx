@@ -5,17 +5,16 @@ import { useNavigate } from 'react-router-dom';
 import '../css/appDash.css'
 import UserMenu from '../app/components/UserMenu';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const backendUrl = 'https://backend-nana-v2.onrender.com';
 
-const getDataFromTableWithConstraints = async () => {
+const logOutl = async () => {
     const res = await fetch(backendUrl + '/logout', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
     });
     const data = await res.json();
-    console.log(data);
     return data;
 };
 
@@ -23,10 +22,11 @@ export default function Appdash() {
 
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "null");
-    const connected = localStorage.getItem("connected"); 
+    const connected = localStorage.getItem("connected");
+    console.log(user, connected);
 
     const permitions = {
-		ownerview : {status : user.owner || user.role === 'superuser'?true:false},
+		ownerview : {status : user?.owner || user?.role === 'superuser'?true:false},
 		formview : {status : true},
 		dbview : {status : true},
 		settingview : {status : false},
@@ -35,15 +35,19 @@ export default function Appdash() {
     
     
 
+    useEffect(()=>{
+        if (!connected || !user) {
+            localStorage.removeItem("user");
+            localStorage.removeItem("connected");
+            navigate('/login');
+        }
+    },[user, connected])
     
-    if (!connected || user === "null") {
-        navigate('/login');
-    }
 
-    const logOut = ()=>{
+    const logOut = async ()=>{
         //logout to the backend
         try {
-            getDataFromTableWithConstraints()
+            await logOutl()
             
         } catch (error) {
             console.log('hummm')

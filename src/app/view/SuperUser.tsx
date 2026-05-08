@@ -4,7 +4,8 @@
 // ---------------------------------------
 
 // url backend here
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+//const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'http://localhost:3000';
 
 // globale functions here
 
@@ -32,6 +33,33 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 async function createDataToTable(table: string, fields: object) {
 
     const response = await fetch(backendUrl + '/crud/create/' + table, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(fields)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// create data in any table
+async function createManagerl(fields: object) {
+
+    const response = await fetch(backendUrl + '/manager/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(fields)
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function initStock(fields: object) {
+
+    const response = await fetch(backendUrl + '/stock/init/',  {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -173,9 +201,8 @@ async function deleteDataFromTable(table:string, fields: object) {
 }
 
 // global actions
-const user = JSON.parse(localStorage.getItem("user") || "null");
-const connected = localStorage.getItem("connected");
-console.log(user)
+
+
 
 
 // imports
@@ -188,7 +215,9 @@ import { useImmer } from 'use-immer';
 // main function
 export default function sudo(){
 
-    const navigate = useNavigate()
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const connected = localStorage.getItem("connected");
     // Redirect
     useEffect(() => {
     if (!connected || !user) {
@@ -417,14 +446,19 @@ export default function sudo(){
             name: newOfficeName,
             owner: user.owner ? user.id :user.promoted_by,
         };
+        console.log(body)
         
         try {
             const response = await createDataToTable("office", body);
-            console.log(response)
             
             //handling (add to list, if error)
             if (response.success === true) {
                 setofficeListe(dr=>{dr.push({ id: response.id, name:newOfficeName})})
+                //init stock
+                const isinit = await initStock({office : newOfficeName})
+                if(!isinit.success){
+                    setError('Initialisation du stock echoue')
+                }
                 // COMPLEMENTED: update visibility after successful creation
                 setOMVisibility(dr=>{
                     dr.thereIsOffice = true
@@ -435,6 +469,8 @@ export default function sudo(){
                 //error handling
                 setError('Un proble serveur est survenu')
             }
+            
+            
         } catch (error) {
             // error
             setError('Un proble de connection est survenu')
@@ -463,7 +499,7 @@ export default function sudo(){
         };
         
         try {
-            const response = await createDataToTable("manager", body);
+            const response = await createManagerl(body);
             console.log(response)
             //handling (add to list, if error)
             if (response.success === true) {

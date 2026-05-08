@@ -27,7 +27,7 @@ const res = await dbCreate('users', { name: 'Bob', email: 'bob@example.com' }, {
 // create data in any table
 async function createDataToTable(table:string,fields: object) {
 
-    const response = await fetch(backendUrl + 'create/' + table, {
+    const response = await fetch(backendUrl + '/crud/create/' + table, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -40,8 +40,7 @@ async function createDataToTable(table:string,fields: object) {
 
 
 // global actions
-const user = JSON.parse(localStorage.getItem("user") || "null");
-const connected = localStorage.getItem("connected");
+
 
 
 // imports
@@ -98,6 +97,8 @@ type onCloseProps = {onclose :(s:boolean) => void}
 
 export default function distributeur({onclose}: onCloseProps) {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const connected = localStorage.getItem("connected");
 
   useEffect(() => {
     if (!connected || !user) {
@@ -129,7 +130,6 @@ export default function distributeur({onclose}: onCloseProps) {
     if (!validateRequired(newSeller.id)) newErrors.id = "ID requis";
     if (!validateRequired(newSeller.name)) newErrors.name = "Nom requis";
     if (!validateRequired(newSeller.sexe)) newErrors.sexe = "Sexe requis";
-    if (!validateRequired(newSeller.upline)) newErrors.upline = "Upline requis";
     if (!validateRequired(newSeller.office)) setnewSeller(dr => { dr.office = user.owner ? selectedOffice : user.office; });
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -137,16 +137,29 @@ export default function distributeur({onclose}: onCloseProps) {
 
   const handleSubmit = async () => {
     setSuccess("");
-    setnewSeller(dr => { dr.phone = theCnuntry + phoneNumber; });
+    setnewSeller(dr => { dr.phone = theCnuntry + phoneNumber; 
+      dr.office = user.owner || user.role === 'superuser' ? selectedOffice : user.office;
+    });
+    if(!newSeller.upline) {
+      setnewSeller(dr => { dr.upline = user.promoted_by;
+    });
+    }
     if (!validate()) return;
     setLoading(true);
     try {
-      console.log(newSeller)
-      const data = await createDataToTable('seller',newSeller);
+      
+      const newdistriobjct = {
+        id: newSeller.id,name: newSeller.name, phone: theCnuntry + phoneNumber, sexe: newSeller.sexe,
+    upline: !newSeller.upline?user.promoted_by: newSeller.upline , office: user.owner || user.role === 'superuser'? selectedOffice:user.office,
+    created_at: 'now()',
+      }
+      console.log(newdistriobjct)
+      const data = await createDataToTable('seller',newdistriobjct);
       if (data.success === false) throw new Error(data.message || "Error");
       setSuccess("Distributeur enregistré avec succès");
       resetSeller();
-      setnewSeller(dr => { dr.phone = '' });
+      setPhoneNumber('');
+      setTheCountry('');
     } catch (err: any) {
       setErrors({ global: err.message });
     } finally {
@@ -157,15 +170,16 @@ export default function distributeur({onclose}: onCloseProps) {
   };
   const [selectedOffice, setSelectedOffice] = useState('');
   const showOfficeSelector =
-        user.role === 'superuser' || user.owner === true;
+        user?.role === 'superuser' || user?.owner === true;
 
   return (
     <main
-      className="main col align-center justify-center p-xl"
+      className="col align-center justify-center "
       data-style="neuro"
       data-mode="light"
+      style={{width: '100%', height: '100%', overflow: 'hidden' }}
     >
-      <div className="surface col gap-lg" style={{ width: '100%', height:'100%', overflow:'auto' }}>
+      <div className="surface col gap-lg" style={{ width: '100%', height:'100%' }}>
         <div className="row gap-md align-center justify-between">
           <div className="col gap-xs">
             <h2 className="text-heading text-2xl">Nouveau distributeur</h2>
@@ -185,91 +199,98 @@ export default function distributeur({onclose}: onCloseProps) {
 
         <div className="divider" />
 
-         {/* ID */}
-        <div className="col gap-xs">
-          <label className="text-label">Identifiant</label>
-          <input className="input" placeholder="ID" value={newSeller.id}
-            onChange={(e) => setnewSeller(dr => { dr.id = e.target.value })} />
-          {errors.id && <span className="badge badge-danger">{errors.id}</span>}
-        </div>
-
-        {/* Name */}
-        <div className="col gap-xs">
-          <label className="text-label">Nom</label>
-          <input className="input" placeholder="Nom complet" value={newSeller.name}
-            onChange={(e) => setnewSeller(dr => { dr.name = e.target.value })} />
-          {errors.name && <span className="badge badge-danger">{errors.name}</span>}
-        </div>
-
-        {/* Sex */}
-        <div className="col gap-xs">
-          <label className="text-label">Sexe</label>
-          <div className="row gap-md">
-            <button
-              className={`btn w-full justify-center${newSeller.sexe === 'm' ? ' btn-primary' : ''}`}
-              onClick={() => setnewSeller(dr => { dr.sexe = 'm' })}
-            >
-              Homme
-            </button>
-            <button
-              className={`btn w-full justify-center${newSeller.sexe === 'f' ? ' btn-primary' : ''}`}
-              onClick={() => setnewSeller(dr => { dr.sexe = 'f' })}
-            >
-              Femme
-            </button>
+        <div className="form-field"
+        style={{overflow:'auto', padding:'0.3rem'}}
+        
+        >
+          {/* ID */}
+          <div className="col gap-xs">
+            <label className="text-label">Identifiant</label>
+            <input className="input" placeholder="ID" value={newSeller.id}
+              onChange={(e) => setnewSeller(dr => { dr.id = e.target.value })} />
+            {errors.id && <span className="badge badge-danger">{errors.id}</span>}
           </div>
-          {errors.sexe && <span className="badge badge-danger">{errors.sexe}</span>}
-        </div>
 
-        {/* Phone */}
-        <div className="col gap-xs">
-          <label className="text-label">Téléphone</label>
-          <div className="row gap-sm align-center">
-            <div
-              className="btn"
-              style={{ minWidth: '5rem', justifyContent: 'center' , cursor:'pointer'}}
-              onClick={() => setShowCountries(!showCountries)}
-            >
-              {theCnuntry || 'Pays'}
-            </div>
-            <input
-              className="input w-full"
-              placeholder="6XX XXX XXX"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
+          {/* Name */}
+          <div className="col gap-xs">
+            <label className="text-label">Nom</label>
+            <input className="input" placeholder="Nom complet" value={newSeller.name}
+              onChange={(e) => setnewSeller(dr => { dr.name = e.target.value })} />
+            {errors.name && <span className="badge badge-danger">{errors.name}</span>}
           </div>
-          {showCountries && (
-            <div className="surface-inset col gap-xs" style={{ maxHeight: '12rem', overflowY: 'auto' }}>
-              {countries.map((c) => (
-                <div
-                  key={c.code}
-                  className="btn btn-ghost text-sm"
-                  onClick={() => { setTheCountry(c.code); setShowCountries(false); }}
-                  style={{cursor:'pointer'}}
-                >
-                  {c.code} {c.name}
-                </div>
-              ))}
+
+          {/* Sex */}
+          <div className="col gap-xs">
+            <label className="text-label">Sexe</label>
+            <div className="row gap-md">
+              <button
+                className={`btn w-full justify-center${newSeller.sexe === 'm' ? ' btn-primary' : ''}`}
+                onClick={() => setnewSeller(dr => { dr.sexe = 'm' })}
+              >
+                Homme
+              </button>
+              <button
+                className={`btn w-full justify-center${newSeller.sexe === 'f' ? ' btn-primary' : ''}`}
+                onClick={() => setnewSeller(dr => { dr.sexe = 'f' })}
+              >
+                Femme
+              </button>
             </div>
-          )}
-          {errors.phone && <span className="badge badge-danger">{errors.phone}</span>}
+            {errors.sexe && <span className="badge badge-danger">{errors.sexe}</span>}
+          </div>
+
+          {/* Phone */}
+          <div className="col gap-xs">
+            <label className="text-label">Téléphone</label>
+            <div className="row gap-sm align-center">
+              <div
+                className="btn"
+                style={{ minWidth: '5rem', justifyContent: 'center' , cursor:'pointer'}}
+                onClick={() => setShowCountries(!showCountries)}
+              >
+                {theCnuntry || 'Pays'}
+              </div>
+              <input
+                className="input w-full"
+                placeholder="6XX XXX XXX"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            </div>
+            {showCountries && (
+              <div className="surface-inset col gap-xs" style={{ maxHeight: '12rem', overflowY: 'auto' }}>
+                {countries.map((c) => (
+                  <div
+                    key={c.code}
+                    className="btn btn-ghost text-sm"
+                    onClick={() => { setTheCountry(c.code); setShowCountries(false); }}
+                    style={{cursor:'pointer'}}
+                  >
+                    {c.code} {c.name}
+                  </div>
+                ))}
+              </div>
+            )}
+            {errors.phone && <span className="badge badge-danger">{errors.phone}</span>}
+          </div>
+
+          {/* Upline */}
+          <div className="col gap-xs">
+            <label className="text-label">Upline</label>
+            <input className="input" placeholder="Upline" value={newSeller.upline}
+              onChange={(e) => setnewSeller(dr => { dr.upline = e.target.value })} />
+            {errors.upline && <span className="badge badge-danger">{errors.upline}</span>}
+          </div>
+
+          {/* Office */}
+          <div className="col gap-xs">
+            <label className="text-label">Bureau</label>
+            <input disabled className="input" placeholder={user.owner || user.role === 'superuser' ? selectedOffice : user.office} 
+              onChange={(e) => setnewSeller(dr => { dr.office = e.target.value })} />
+          </div>
         </div>
 
-        {/* Upline */}
-        <div className="col gap-xs">
-          <label className="text-label">Upline</label>
-          <input className="input" placeholder="Upline" value={newSeller.upline}
-            onChange={(e) => setnewSeller(dr => { dr.upline = e.target.value })} />
-          {errors.upline && <span className="badge badge-danger">{errors.upline}</span>}
-        </div>
-
-        {/* Office */}
-        <div className="col gap-xs">
-          <label className="text-label">Bureau</label>
-          <input disabled className="input" placeholder={selectedOffice} 
-            onChange={(e) => setnewSeller(dr => { dr.office = e.target.value })} />
-        </div>
+        
 
         <div className="divider" />
 

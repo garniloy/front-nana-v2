@@ -1,13 +1,22 @@
 const backendUrl = 'https://backend-nana-v2.onrender.com';
+//const backendUrl = 'http://localhost:3000';
 
-async function createDataToTable( fields: object) {
-    const response = await fetch(backendUrl + '/appro/create/' , {
+async function createDataToTable(fields: object) {
+    const response = await fetch(backendUrl + '/appro/create/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fields),
     });
-    const data = await response.json();
-    return data;
+    return response.json();
+}
+
+async function transferStock(fields: object) {
+    const response = await fetch(backendUrl + '/appro/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+    });
+    return response.json();
 }
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
@@ -16,13 +25,10 @@ const getDataFromTableWithConstraints = async (table: string, body: object) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    const data = await res.json();
-    console.log(data);
-    return data;
+    return res.json();
 };
 
-const user = JSON.parse(localStorage.getItem('user') || 'null');
-const connected = localStorage.getItem('connected');
+
 
 import { useState, useEffect } from 'react';
 import '../css/form.css';
@@ -34,6 +40,8 @@ type onCloseProps = { onclose: (s: boolean) => void };
 
 export default function Appro({ onclose }: onCloseProps) {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const connected = localStorage.getItem('connected');
 
     useEffect(() => {
         if (!connected || !user) {
@@ -44,37 +52,57 @@ export default function Appro({ onclose }: onCloseProps) {
     }, [connected, user, navigate]);
 
     type Stock = { name: string; qte: number };
-    type ApproItem = { name: string; add_qte: number; prev_qte: number; next_qte: number, manager:string, office:string };
+    type ApproItem = {
+        name: string;
+        add_qte: number;
+        prev_qte: number;
+        next_qte: number;
+        manager: string;
+        office: string;
+    };
+    type TransferItem = {
+        name: string;
+        transfer_qte: number;
+        prev_qte: number;
+        next_qte: number;
+        manager: string;
+    };
     type FetchData = { success: boolean; list: Stock[] };
 
-    // FIX: start with an empty array — no dummy data
+    // ── mode : 'appro' | 'transfer'
+    const [mode, setMode] = useState<'appro' | 'transfer'>('appro');
+
     const [stockActuel, setStockActuel] = useImmer<Stock[]>([]);
     const [approList, setApproList] = useImmer<ApproItem[]>([]);
+    const [transferList, setTransferList] = useImmer<TransferItem[]>([]);
+
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [highlighted, setHighlighted] = useState<string[]>([]);
     const [selectedOffice, setSelectedOffice] = useState('');
+    const [targetOffice, setTargetOffice] = useState('');
     const [errors, setErrors] = useImmer('');
 
-    // FIX: boolean, not a function call in JSX
-    const showOfficeSelector =
-        user.role === 'superuser' || user.owner === true;
+    const canTransfer = user?.role === 'superuser' || user?.owner === true;
+    const showOfficeSelector = canTransfer;
 
-    // FIX: clear stale stock before fetching; guard against empty selectedOffice
+    // Source office : pour un appro classique c'est l'office du user (sauf superuser/owner).
+    const sourceOffice = user.owner || user.role === 'superuser' ? selectedOffice : user.office;
+
+    // ── Charge le stock dès que le bureau source change
     useEffect(() => {
-        if (!selectedOffice) return;
+        if (!sourceOffice) return;
 
         const fetchdata = async () => {
             setLoading(true);
-            // Clear previous stock so old items don't linger
             setStockActuel(() => []);
-            // Reset the appro list for the new office
             setApproList(() => []);
+            setTransferList(() => []);
 
             const field = {
                 fields: ['name', 'qte'],
-                constraints: { office: selectedOffice },
+                constraints: { office: sourceOffice },
             };
             try {
                 const data: FetchData = await getDataFromTableWithConstraints('stock', field);
@@ -82,22 +110,31 @@ export default function Appro({ onclose }: onCloseProps) {
                     setStockActuel(() => []);
                     return;
                 }
-                // FIX: replace content, don't push on top of leftovers
                 setStockActuel(() => data.list);
             } catch (error) {
-                setErrors('Erreur lors du chargement du stock : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
+                showError('Erreur lors du chargement du stock : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
             } finally {
                 setLoading(false);
-                setTimeout(() => {
-                    setErrors('');
-                }, 3000);
             }
         };
 
         fetchdata();
-    }, [selectedOffice]);
+    }, [sourceOffice]);
 
-    const handleChange = (name: string, value: string) => {
+    // ── Reset les listes quand on change de mode
+    useEffect(() => {
+        setApproList(() => []);
+        setTransferList(() => []);
+        setTargetOffice('');
+    }, [mode]);
+
+    const showError = (msg: string) => {
+        setErrors(msg);
+        setTimeout(() => setErrors(''), 3500);
+    };
+
+    // ── Handlers appro
+    const handleApproChange = (name: string, value: string) => {
         const add = Number(value);
         if (isNaN(add) || add <= 0) return;
         const stockItem = stockActuel.find((p) => p.name === name);
@@ -108,21 +145,59 @@ export default function Appro({ onclose }: onCloseProps) {
                 existing.add_qte = add;
                 existing.next_qte = stockItem.qte + add;
             } else {
-                draft.push({ name, add_qte: add, prev_qte: stockItem.qte, next_qte: stockItem.qte + add, manager: user.id, office: selectedOffice || user.office });
+                draft.push({
+                    name,
+                    add_qte: add,
+                    prev_qte: stockItem.qte,
+                    next_qte: stockItem.qte + add,
+                    manager: user.id,
+                    office: sourceOffice,
+                });
             }
         });
     };
 
-    const hasChanges = approList.some((p) => p.add_qte > 0);
+    // ── Handlers transfert
+    const handleTransferChange = (name: string, value: string) => {
+        const qte = Number(value);
+        if (isNaN(qte) || qte <= 0) return;
+        const stockItem = stockActuel.find((p) => p.name === name);
+        if (!stockItem) return;
 
+        // Validation côté client : ne pas dépasser le stock disponible
+        if (qte > stockItem.qte) {
+            showError(`Stock insuffisant pour "${name}" : disponible ${stockItem.qte}`);
+            return;
+        }
+
+        setTransferList((draft) => {
+            const existing = draft.find((p) => p.name === name);
+            if (existing) {
+                existing.transfer_qte = qte;
+                existing.next_qte = stockItem.qte - qte;
+            } else {
+                draft.push({
+                    name,
+                    transfer_qte: qte,
+                    prev_qte: stockItem.qte,
+                    next_qte: stockItem.qte - qte,
+                    manager: user.id,
+                });
+            }
+        });
+    };
+
+    const hasChanges =
+        mode === 'appro'
+            ? approList.some((p) => p.add_qte > 0)
+            : transferList.some((p) => p.transfer_qte > 0) && !!targetOffice;
+
+    // ── Submit appro
     const submitAppro = async () => {
         setSubmitting(true);
+        console.log(sourceOffice, approList)
         try {
-            console.log(approList)
-            // FIX: use selectedOffice (reflects the office picker), not the stale user.office
-            const appro = await createDataToTable({
-                approList
-            });
+            const appro = await createDataToTable({ approList });
             if (appro.success) {
                 setStockActuel((draft) => {
                     approList.forEach((a) => {
@@ -134,17 +209,48 @@ export default function Appro({ onclose }: onCloseProps) {
                 setApproList(() => []);
                 setShowConfirm(false);
                 setTimeout(() => setHighlighted([]), 2000);
-            }else{
-                setErrors('Erreur lors de l\'approvisionnement : ' + (appro.message || 'Erreur inconnue'));
+            } else {
+                showError("Erreur lors de l'approvisionnement : " + (appro.message || 'Erreur inconnue'));
             }
-            
         } catch (error) {
-            setErrors('Erreur lors du chargement du stock : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
+            showError('Erreur : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
         } finally {
             setSubmitting(false);
-            setTimeout(() => {
-                setErrors('');
-            }, 3000);
+        }
+    };
+
+    // ── Submit transfert
+    const submitTransfer = async () => {
+        if (targetOffice === sourceOffice) {
+            showError('Le bureau cible ne peut pas être le même que le bureau source.');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const result = await transferStock({
+                transferList,
+                sourceOffice,
+                targetOffice,
+            });
+            if (result.success) {
+                // Met à jour le stock affiché (bureau source se vide)
+                setStockActuel((draft) => {
+                    transferList.forEach((t) => {
+                        const item = draft.find((p) => p.name === t.name);
+                        if (item) item.qte = t.next_qte;
+                    });
+                });
+                setHighlighted(transferList.map((t) => t.name));
+                setTransferList(() => []);
+                setShowConfirm(false);
+                setTimeout(() => setHighlighted([]), 2000);
+            } else {
+                showError('Erreur lors du transfert : ' + (result.message || result.error?.message || 'Erreur inconnue'));
+            }
+        } catch (error) {
+            showError('Erreur : ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -154,9 +260,11 @@ export default function Appro({ onclose }: onCloseProps) {
         return 'badge badge-success';
     };
 
+    //const activeList = mode === 'appro' ? approList : transferList;
+
     return (
-        <main className="main" data-style="neuro" data-mode="light">
-            <div className="surface col gap-sm" style={{ width: '100%' }}>
+        <main className="main" data-style="neuro" data-mode="light" style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="surface col gap-sm" style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {/* ERROR TOAST */}
                 {errors && (
                     <div
@@ -170,22 +278,77 @@ export default function Appro({ onclose }: onCloseProps) {
                 {/* HEADER */}
                 <div className="row align-center justify-between">
                     <div className="col gap-xs">
-                        <h2 className="text-heading text-xl">Approvisionnement</h2>
-                        <p className="text-body text-sm">Ajoutez les quantités à réapprovisionner.</p>
+                        <h2 className="text-heading text-xl">
+                            {mode === 'appro' ? 'Approvisionnement' : 'Transfert de stock'}
+                        </h2>
+                        <p className="text-body text-sm">
+                            {mode === 'appro'
+                                ? 'Ajoutez les quantités à réapprovisionner.'
+                                : 'Transférez des produits vers un autre bureau.'}
+                        </p>
                     </div>
-                    {showOfficeSelector && (
+
+                    <div className="row gap-sm align-center">
+                        {/* Toggle mode (superuser / owner seulement) */}
+                        {canTransfer && (
+                            <div className="row gap-xs">
+                                <button
+                                    className={`btn btn-sm${mode === 'appro' ? ' btn-primary' : ' btn-ghost'}`}
+                                    onClick={() => setMode('appro')}
+                                >
+                                    Appro
+                                </button>
+                                <button
+                                    className={`btn btn-sm${mode === 'transfer' ? ' btn-primary' : ' btn-ghost'}`}
+                                    onClick={() => setMode('transfer')}
+                                >
+                                    ⇄ Transfert
+                                </button>
+                            </div>
+                        )}
+
+                        {showOfficeSelector && (
+                            <OfficeSelector
+                                onOfficeSelect={(officeName) => {
+                                    setSelectedOffice(officeName);
+                                }}
+                            />
+                        )}
+
+                        <button className="btn" onClick={() => onclose?.(true)}>
+                            back
+                        </button>
+                    </div>
+                </div>
+
+                {/* SÉLECTION DU BUREAU CIBLE (mode transfert uniquement) */}
+                {mode === 'transfer' && (
+                    <div className="surface-inset row align-center gap-md" style={{ padding: '0.75rem 1rem' }}>
+                        <span className="text-label" style={{ whiteSpace: 'nowrap' }}>
+                            Bureau source :
+                        </span>
+                        <span className="badge badge-warning">{sourceOffice || '—'}</span>
+
+                        <span className="text-secondary" style={{ fontSize: '1.2rem' }}>→</span>
+
+                        <span className="text-label" style={{ whiteSpace: 'nowrap' }}>
+                            Bureau cible :
+                        </span>
+                        {/* On réutilise OfficeSelector en filtrant le bureau source */}
                         <OfficeSelector
                             onOfficeSelect={(officeName) => {
-                                // FIX: no comma operator; two proper statements
-                                setSelectedOffice(officeName);
-                                console.log('selected office', officeName);
+                                if (officeName === sourceOffice) {
+                                    showError('Impossible de transférer vers le même bureau.');
+                                    return;
+                                }
+                                setTargetOffice(officeName);
                             }}
                         />
-                    )}
-                    <button className="btn" onClick={() => onclose?.(true)}>
-                        back
-                    </button>
-                </div>
+                        {targetOffice && (
+                            <span className="badge badge-success">{targetOffice}</span>
+                        )}
+                    </div>
+                )}
 
                 <div className="divider" />
 
@@ -196,19 +359,32 @@ export default function Appro({ onclose }: onCloseProps) {
                 >
                     <span className="text-label">Produit</span>
                     <span className="text-label text-center">Stock actuel</span>
-                    <span className="text-label text-center">Quantité à ajouter</span>
+                    <span className="text-label text-center">
+                        {mode === 'appro' ? 'Quantité à ajouter' : 'Quantité à transférer'}
+                    </span>
                 </div>
 
                 {/* ROWS */}
                 {loading ? (
                     <p className="text-body text-sm">Chargement du stock…</p>
-                ) : stockActuel.length === 0 && selectedOffice ? (
+                ) : stockActuel.length === 0 && sourceOffice ? (
                     <p className="text-body text-sm">Aucun stock disponible pour ce bureau.</p>
                 ) : (
                     <div className="col gap-md" style={{ overflow: 'auto' }}>
                         {stockActuel.map((produit) => {
-                            const appro = approList.find((a) => a.name === produit.name);
+                            const approItem = approList.find((a) => a.name === produit.name);
+                            const transferItem = transferList.find((t) => t.name === produit.name);
                             const isHighlighted = highlighted.includes(produit.name);
+
+                            const currentValue =
+                                mode === 'appro'
+                                    ? approItem?.add_qte || ''
+                                    : transferItem?.transfer_qte || '';
+
+                            const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+                                mode === 'appro'
+                                    ? handleApproChange(produit.name, e.target.value)
+                                    : handleTransferChange(produit.name, e.target.value);
 
                             return (
                                 <div
@@ -218,9 +394,7 @@ export default function Appro({ onclose }: onCloseProps) {
                                         display: 'grid',
                                         gridTemplateColumns: '1fr 1fr 1fr',
                                         transition: 'background 0.4s',
-                                        ...(isHighlighted
-                                            ? { background: 'rgba(13,242,97,0.08)' }
-                                            : {}),
+                                        ...(isHighlighted ? { background: 'rgba(13,242,97,0.08)' } : {}),
                                     }}
                                 >
                                     <p className="text-body weight-medium">{produit.name}</p>
@@ -235,9 +409,13 @@ export default function Appro({ onclose }: onCloseProps) {
                                         <input
                                             className="input"
                                             type="number"
+                                            min={1}
+                                            max={mode === 'transfer' ? produit.qte : undefined}
                                             style={{ width: '6rem', textAlign: 'center' }}
-                                            value={appro?.add_qte || ''}
-                                            onChange={(e) => handleChange(produit.name, e.target.value)}
+                                            value={currentValue}
+                                            onChange={onChange}
+                                            // En mode transfert, désactiver si stock = 0
+                                            disabled={mode === 'transfer' && produit.qte === 0}
                                         />
                                     </div>
                                 </div>
@@ -254,9 +432,15 @@ export default function Appro({ onclose }: onCloseProps) {
                         !hasChanges || submitting ? ' opacity-50 not-allowed' : ''
                     }`}
                     disabled={!hasChanges || submitting}
-                    onClick={() => setShowConfirm(true)}
+                    onClick={() => {
+                        if (mode === 'transfer' && !targetOffice) {
+                            showError('Veuillez sélectionner un bureau cible.');
+                            return;
+                        }
+                        setShowConfirm(true);
+                    }}
                 >
-                    Approvisionner
+                    {mode === 'appro' ? 'Approvisionner' : 'Transférer'}
                 </button>
             </div>
 
@@ -265,25 +449,61 @@ export default function Appro({ onclose }: onCloseProps) {
                 <div className="overlay">
                     <div className="modal col gap-lg">
                         <div className="col gap-xs">
-                            <h3 className="text-heading text-xl">Confirmer l'approvisionnement</h3>
+                            <h3 className="text-heading text-xl">
+                                {mode === 'appro'
+                                    ? "Confirmer l'approvisionnement"
+                                    : 'Confirmer le transfert'}
+                            </h3>
                             <p className="text-body text-sm">
-                                Vérifiez les modifications avant de valider.
+                                {mode === 'appro'
+                                    ? 'Vérifiez les modifications avant de valider.'
+                                    : (
+                                        <>
+                                            Transfert de{' '}
+                                            <strong>{sourceOffice}</strong>
+                                            {' → '}
+                                            <strong>{targetOffice}</strong>
+                                        </>
+                                    )}
                             </p>
                         </div>
 
                         <div className="divider" />
 
                         <div className="col gap-sm">
-                            {approList.map((item) => (
-                                <div key={item.name} className="row align-center justify-between">
-                                    <span className="text-body weight-medium">{item.name}</span>
-                                    <div className="row align-center gap-sm">
-                                        <span className="badge badge-warning">{item.prev_qte}</span>
-                                        <span className="text-secondary">→</span>
-                                        <span className="badge badge-success">{item.next_qte}</span>
+                            {mode === 'appro'
+                                ? approList.map((item) => (
+                                    <div key={item.name} className="row align-center justify-between">
+                                        <span className="text-body weight-medium">{item.name}</span>
+                                        <div className="row align-center gap-sm">
+                                            <span className="badge badge-warning">{item.prev_qte}</span>
+                                            <span className="text-secondary">→</span>
+                                            <span className="badge badge-success">{item.next_qte}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))
+                                : transferList.map((item) => (
+                                    <div key={item.name} className="row align-center justify-between">
+                                        <span className="text-body weight-medium">{item.name}</span>
+                                        <div className="row align-center gap-sm">
+                                            {/* Stock bureau source : avant → après */}
+                                            <div className="col gap-xs" style={{ alignItems: 'flex-end' }}>
+                                                <span className="text-label" style={{ fontSize: '0.65rem' }}>{sourceOffice}</span>
+                                                <div className="row align-center gap-xs">
+                                                    <span className="badge badge-warning">{item.prev_qte}</span>
+                                                    <span className="text-secondary">→</span>
+                                                    <span className="badge badge-danger">{item.next_qte}</span>
+                                                </div>
+                                            </div>
+                                            <span className="text-secondary" style={{ fontSize: '1.1rem', padding: '0 0.25rem' }}>⇄</span>
+                                            {/* Quantité ajoutée dans le bureau cible */}
+                                            <div className="col gap-xs" style={{ alignItems: 'flex-start' }}>
+                                                <span className="text-label" style={{ fontSize: '0.65rem' }}>{targetOffice}</span>
+                                                <span className="badge badge-success">+{item.transfer_qte}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                         </div>
 
                         <div className="divider" />
@@ -299,7 +519,7 @@ export default function Appro({ onclose }: onCloseProps) {
                                 className={`btn btn-primary w-full justify-center${
                                     submitting ? ' opacity-75 not-allowed' : ''
                                 }`}
-                                onClick={submitAppro}
+                                onClick={mode === 'appro' ? submitAppro : submitTransfer}
                                 disabled={submitting}
                             >
                                 {submitting ? '…' : 'Confirmer'}

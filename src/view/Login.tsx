@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../css/login.css'
-import { useNavigate } from "react-router-dom";
 
 const backendUrl = 'https://backend-nana-v2.onrender.com';
+
 
 async function fetchUserData(id: string, password: string) {
     const response = await fetch(backendUrl+'/login', {
@@ -13,13 +13,26 @@ async function fetchUserData(id: string, password: string) {
     return response.json();
 }
 
+
+// global actions
+const user = JSON.parse(localStorage.getItem("user") || "null");
+const connected = localStorage.getItem("connected");
+
+
 export default function Login({ onLogin }: { onLogin: () => void }) {
+
+    useEffect(() => {
+        if (connected && user) {
+            onLogin();
+        }
+        }, [connected, user]);
+
+
     const [id, setId] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const navigate = useNavigate();
-
+    
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
@@ -106,9 +119,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                     >
                         {loading ? 'Connexion en cours…' : 'Se connecter'}
                     </button>
-                    <span >
-                            Pas encore de compte ? |    <span className="badge badge-danger " style={{ justifyContent: 'center', cursor:'pointer'}} onClick={()=>{navigate('/register')}}>Créer en un</span> 
-                        </span>
+                   
                 </form>
             </div>
         </div>
