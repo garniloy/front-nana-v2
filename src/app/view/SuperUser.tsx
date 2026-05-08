@@ -4,8 +4,8 @@
 // ---------------------------------------
 
 // url backend here
-//const backendUrl = 'https://backend-nana-v2.onrender.com';
-const backendUrl = 'http://localhost:3000';
+const backendUrl = 'https://backend-nana-v2.onrender.com';
+//const backendUrl = 'http://localhost:3000';
 
 // globale functions here
 
