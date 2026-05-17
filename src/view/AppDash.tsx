@@ -7,7 +7,8 @@ import UserMenu from '../app/components/UserMenu';
 
 import { useState, useEffect } from 'react';
 
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
+//const backendUrl = 'http://localhost:3000';
 
 const logOutl = async () => {
     const res = await fetch(backendUrl + '/logout', {
@@ -23,10 +24,10 @@ export default function Appdash() {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const connected = localStorage.getItem("connected");
-    console.log(user, connected);
+    
 
     const permitions = {
-		ownerview : {status : user?.owner || user?.role === 'superuser'?true:false},
+		ownerview : {status : user?.owner},
 		formview : {status : true},
 		dbview : {status : true},
 		settingview : {status : false},

@@ -1,6 +1,7 @@
 
 // url backend here
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
+//const backendUrl = 'http://localhost:3000';
 
 // globale functions here
 

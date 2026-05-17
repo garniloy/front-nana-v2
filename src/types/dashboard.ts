@@ -13,6 +13,7 @@ export interface DashboardUser {
 // ── Filtres ──────────────────────────────────────────────────────
 
 export type Period = 'today' | 'week' | 'month' | 'custom';
+export type IssueFilter = 'valid' | 'pending' | 'canceled';
 
 export interface DashboardFilters {
   period: Period;
@@ -22,8 +23,9 @@ export interface DashboardFilters {
   seller?: string;
   product?: string;
   payment_mode?: string;
-  client_kind?: string;
+  clientKind?: string;
   client?: string;
+  issue?: IssueFilter; // défaut: 'valid'
 }
 
 // ── Référentiels ─────────────────────────────────────────────────
@@ -74,9 +76,8 @@ export interface KpiValue {
 
 export interface OverviewData {
   ca: KpiValue;
-  benefice: KpiValue;
+  benefice_net: KpiValue;   // anciennement "bénéfice total" = bénéfice net réel
   commission: KpiValue;
-  profit_net: KpiValue;
   nb_ventes: KpiValue;
   pv: KpiValue;
   dateRange: { start: string; end: string };
@@ -87,22 +88,21 @@ export interface OverviewData {
 export interface TimelinePoint {
   date: string;
   ca: number;
-  benefice: number;
+  benefice_net: number;
   commission: number;
-  profit_net: number;
 }
 
 export interface OfficeFinancial {
   office: string;
   ca: number;
-  benefice: number;
+  benefice_net: number;
 }
 
 export interface SellerFinancial {
   seller: string;
   name: string;
   ca: number;
-  benefice: number;
+  benefice_net: number;
   commission: number;
   pv: number;
 }
@@ -140,12 +140,28 @@ export interface TopProduct {
   pv: number;
 }
 
+// ── Métriques issue (pending / canceled) ─────────────────────────
+
+export interface IssueStats {
+  pending_count: number;
+  pending_amount: number;
+  canceled_count: number;
+  canceled_rate: number; // % sur (valid + pending + canceled)
+}
+
 // ── MLM ──────────────────────────────────────────────────────────
+
+export interface MlmSellerEntry {
+  seller: string;
+  name: string;
+  pv: number;
+  is_distributor_purchase?: boolean; // vente bureau → distributeur
+}
 
 export interface MlmStats {
   total_pv: number;
   timeline: { date: string; pv: number }[];
-  by_seller: { seller: string; name: string; pv: number }[];
+  by_seller: MlmSellerEntry[];
   by_product: { name: string; pv: number }[];
 }
 
@@ -170,12 +186,16 @@ export interface StockActuel {
   name: string;
   office: string;
   qte: number;
+  pr_stock?: number;
+  pr_distr?: number;
 }
 
 export interface StockStats {
   total_in: number;
   total_out: number;
   variation: number;
+  valeur_stock_stockiste: number;
+  valeur_stock_distributeur: number;
   timeline: StockTimelinePoint[];
   stock_actuel: StockActuel[];
 }
@@ -204,6 +224,7 @@ export interface DashboardState {
   financialByClient: ClientFinancial[] | null;
   salesTimeline: SalesTimelinePoint[] | null;
   salesMix: SalesMix | null;
+  issueStats: IssueStats | null;
   topSellers: SellerFinancial[] | null;
   topProducts: TopProduct[] | null;
   topClients: ClientFinancial[] | null;
@@ -231,3 +252,7 @@ export interface ErrorState {
   clients: string | null;
   stock: string | null;
 }
+
+// ── Thème ────────────────────────────────────────────────────────
+
+export type ThemeMode = 'light' | 'dark';

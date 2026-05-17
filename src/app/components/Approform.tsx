@@ -1,4 +1,4 @@
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
 //const backendUrl = 'http://localhost:3000';
 
 async function createDataToTable(fields: object) {
@@ -7,6 +7,16 @@ async function createDataToTable(fields: object) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fields),
     });
+    return response.json();
+}
+
+async function refreshStock(office: string) {
+    const response = await fetch(backendUrl + '/stock/actualiser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ office }),
+    });
+
     return response.json();
 }
 
@@ -314,6 +324,53 @@ export default function Appro({ onclose }: onCloseProps) {
                                 }}
                             />
                         )}
+
+                        <button
+                            className="btn"
+                            disabled={!sourceOffice || loading}
+                            onClick={async () => {
+                                if (!sourceOffice) {
+                                    showError('Veuillez sélectionner un bureau.');
+                                    return;
+                                }
+
+                                try {
+                                    setLoading(true);
+
+                                    const result = await refreshStock(sourceOffice);
+
+                                    if (!result.success) {
+                                        showError(result.error || 'Erreur lors de la synchronisation du stock.');
+                                        return;
+                                    }
+
+                                    // Recharge le stock après synchronisation
+                                    const field = {
+                                        fields: ['name', 'qte'],
+                                        constraints: { office: sourceOffice },
+                                    };
+
+                                    const data: FetchData = await getDataFromTableWithConstraints(
+                                        'stock',
+                                        field
+                                    );
+
+                                    if (data.success) {
+                                        setStockActuel(() => data.list || []);
+                                    }
+
+                                } catch (error) {
+                                    showError(
+                                        'Erreur lors de la synchronisation : ' +
+                                        (error instanceof Error ? error.message : 'Erreur inconnue')
+                                    );
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                        >
+                            ↻ Actualiser le stock
+                        </button>
 
                         <button className="btn" onClick={() => onclose?.(true)}>
                             back

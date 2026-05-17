@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import '../css/login.css'
 
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
+//const backendUrl = 'http://localhost:3000';
 
 
 async function fetchUserData(id: string, password: string) {
@@ -14,13 +15,13 @@ async function fetchUserData(id: string, password: string) {
 }
 
 
-// global actions
-const user = JSON.parse(localStorage.getItem("user") || "null");
-const connected = localStorage.getItem("connected");
+
 
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
-
+// global actions
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const connected = localStorage.getItem("connected");
     useEffect(() => {
         if (connected && user) {
             onLogin();

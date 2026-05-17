@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback} from 'react';
 import OfficeSelector from '../components/Office-selector';
 
 // ── Backend helpers ───────────────────────────────────────────────────────────
-const backendUrl = 'https://backend-nana-v2.onrender.com';
-
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
+//const backendUrl = 'http://localhost:3000';
 /*
 
 {
@@ -45,7 +45,7 @@ const updateDataToTable = async (table: string, fields: object) => {
   return res.json();
 };
 //delete data
-async function deleteDataFromTable(table:string, fields: object) {
+/*async function deleteDataFromTable(table:string, fields: object) {
     const response = await fetch(backendUrl + '/crud/delete/' + table, {
         method: 'POST',
         headers: {
@@ -55,7 +55,7 @@ async function deleteDataFromTable(table:string, fields: object) {
     });
     const data = await response.json();
     return data;
-}
+}*/
 
 
 // ── User ──────────────────────────────────────────────────────────────────────
@@ -75,9 +75,11 @@ type TableDef = {
   columns: ColDef[];
 };
 
+//type officedef = string
+
 const TABLES: TableDef[] = [
   {
-    name: 'stock_move', label: 'Mouvements', crud: true, pkField: 'id', officeField: 'office',
+    name: 'stock_move', label: 'Mouvements', crud: false, pkField: 'id', officeField: 'office',
     columns: [
       { key: 'id',      label: 'ID',       readonly: true },
       { key: 'element', label: 'Élément' },
@@ -450,17 +452,21 @@ function DeleteModal({
   table, row, onClose, onDeleted,
 }: {
   table: TableDef; row: Row; onClose: () => void; onDeleted: () => void;
-}) {
+},) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  
 
   const handleDelete = async () => {
     setDeleting(true);
     try {
       console.log('constraints: ', { [table.pkField]: row[table.pkField] })
-      const res = await deleteDataFromTable(table.name, {
-        constraints: { [table.pkField]: row[table.pkField] },
-      });
+
+      const res = await updateDataToTable(table.name, {
+          set: { is_deleted: true },
+          where: { [table.pkField]: row![table.pkField] },
+        });
+      
       if (res.success === false) throw new Error(res.error || 'Erreur');
       onDeleted();
       onClose();
@@ -506,7 +512,7 @@ function TablePanel({
   selectedOffice: string;
 }) {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  const isSuperUser = user?.role === 'superuser' || user?.owner === true;
+  const isSuperUser = user?.owner === true;
 
   const [rows, setRows]           = useState<Row[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -521,13 +527,14 @@ function TablePanel({
    * - Regular user: always their own office
    */
   const resolvedOffice = isSuperUser ? selectedOffice : (user?.office ?? '');
+  const canCrud = user?.owner === true || user?.role === 'superuser'
 
   /**
    * crudBlocked: true when a superuser is on a table that has an officeField
    * but hasn't chosen an office yet. We block the CRUD buttons to prevent
    * silent data mismatches.
    */
-  const crudBlocked = isSuperUser && table.officeField !== null && !selectedOffice;
+  const crudBlocked = canCrud && table.officeField !== null && !selectedOffice;
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -546,6 +553,10 @@ function TablePanel({
           // Regular user: always scoped to their own office
           constraints[table.officeField] = user?.office;
         }
+      }
+
+      if (table.name === 'prod_serv' || table.name === 'seller') {
+        constraints['is_deleted'] = false;
       }
 
       const res = await getDataFromTableWithConstraints(table.name, {
@@ -745,6 +756,7 @@ function TablePanel({
           row={deleteRow}
           onClose={() => setDeleteRow(null)}
           onDeleted={fetchRows}
+        
         />
       )}
     </div>
@@ -754,7 +766,7 @@ function TablePanel({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DataViewer() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  const isSuperUser = user?.role === 'superuser' || user?.owner === true;
+  const isSuperUser = user?.owner === true;
   const showOfficeSelector = isSuperUser;
 
   const [activeIdx, setActiveIdx] = useState(0);
@@ -780,7 +792,7 @@ export default function DataViewer() {
             <h1 className="text-heading text-2xl">Base de données</h1>
             <p className="text-body text-sm">
               {isSuperUser
-                ? `Vue filtrée — bureau : ${selectedOffice}`
+                ? `Vue filtrée — bureau : ${user.owner || user.role ==='superuser' ? selectedOffice:user.office}`
                   : `Bureau : ${user?.office ?? '—'}`}
             </p>
           </div>
@@ -867,7 +879,7 @@ export default function DataViewer() {
                   height: '100%',
                 }}
               >
-                <TablePanel table={t} selectedOffice={selectedOffice} />
+                <TablePanel table={t} selectedOffice={user.owner || user.role ==='superuser' ? selectedOffice:user.office} />
               </div>
             ) : null
           )}

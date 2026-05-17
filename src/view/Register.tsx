@@ -4,7 +4,8 @@ import { gsap } from "gsap";
 import '../css/register.css';
 
 
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
+//const backendUrl = 'http://localhost:3000';
 
 
 

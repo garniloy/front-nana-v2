@@ -4,7 +4,7 @@
 // ---------------------------------------
 
 // url backend here
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
 //const backendUrl = 'http://localhost:3000';
 
 // globale functions here
@@ -573,11 +573,11 @@ export default function sudo(){
         setLoading(dr=>{ dr.global = true })
 
         const body = { 
-            contraints : {id: id},
-            returning: false
+            set : {is_deleted : true},
+            where : { id: id }
         }
         try {
-            const response = await deleteDataFromTable("office", body);
+            const response = await updateDataToTable("manager", body);
             // COMPLEMENTED: remove from list on success
             if (response.success === true) {
                 setofficeListe(draft => {
@@ -610,11 +610,11 @@ export default function sudo(){
         setLoading(dr=>{ dr.global = true })
 
         const body = { 
-            contraints : {id: id},
-            returning: false
+            set : {is_deleted : true},
+            where : { id: id }
         }
         try {
-            const response = await deleteDataFromTable("manager", body);
+            const response = await updateDataToTable("manager", body);
             // COMPLEMENTED: remove from list on success
             if (response.success === true) {
                 setmanagerListe(draft => {

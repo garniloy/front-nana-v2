@@ -9,22 +9,21 @@ import type {
   ErrorState,
   DashboardSection,
   Period,
+  IssueFilter,
+  ThemeMode,
 } from '../types/dashboard';
 
 // ─────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────
 
-const API_BASE ='https://backend-nana-v2.onrender.com/api';
+const API_BASE = 'https://backend-nana-v2-production.up.railway.app/api';
+//const API_BASE = 'http://localhost:3000/api';
 
 // ─────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────
 
-/**
- * Récupère l'utilisateur connecté depuis le localStorage.
- * Retourne null si absent ou invalide.
- */
 export function getUserFromStorage(): DashboardUser | null {
   try {
     const raw = localStorage.getItem('user');
@@ -41,9 +40,14 @@ export function getUserFromStorage(): DashboardUser | null {
   }
 }
 
-/**
- * Appel API générique avec gestion d'erreur explicite.
- */
+export function getThemeFromStorage(): ThemeMode {
+  try {
+    const raw = localStorage.getItem('dashboard_theme');
+    if (raw === 'dark' || raw === 'light') return raw;
+  } catch (_) { /* ignore */ }
+  return 'light'; // défaut : light
+}
+
 async function apiPost<T>(
   endpoint: string,
   user: DashboardUser,
@@ -59,8 +63,9 @@ async function apiPost<T>(
     seller: filters.seller,
     product: filters.product,
     payment_mode: filters.payment_mode,
-    client_kind: filters.client_kind,
+    client_kind: filters.clientKind,
     client: filters.client,
+    issue: filters.issue ?? 'valid', // toujours envoyé, défaut 'valid'
     ...extra,
   };
 
@@ -95,6 +100,7 @@ const INITIAL_STATE: DashboardState = {
   financialByClient: null,
   salesTimeline: null,
   salesMix: null,
+  issueStats: null,
   topSellers: null,
   topProducts: null,
   topClients: null,
@@ -125,6 +131,7 @@ const INITIAL_ERRORS: ErrorState = {
 
 const DEFAULT_FILTERS: DashboardFilters = {
   period: 'month',
+  issue: 'valid', // défaut : uniquement les ventes validées
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -139,11 +146,18 @@ export function useDashboard() {
   const [data, setData] = useState<DashboardState>(INITIAL_STATE);
   const [loading, setLoading] = useState<LoadingState>(INITIAL_LOADING);
   const [errors, setErrors] = useState<ErrorState>(INITIAL_ERRORS);
+  const [theme, setThemeState] = useState<ThemeMode>(getThemeFromStorage);
 
-  // Ref pour annuler les requêtes obsolètes si les filtres changent
-  //const abortRef = useRef<AbortController | null>(null);
+  // ── Thème ─────────────────────────────────────────────────────
+  const toggleTheme = useCallback(() => {
+    setThemeState(prev => {
+      const next: ThemeMode = prev === 'light' ? 'dark' : 'light';
+      try { localStorage.setItem('dashboard_theme', next); } catch (_) { /* ignore */ }
+      return next;
+    });
+  }, []);
 
-  // ── Mise à jour d'un champ de filtre ──────────────────────────
+  // ── Filtres ───────────────────────────────────────────────────
   const updateFilter = useCallback(<K extends keyof DashboardFilters>(
     key: K,
     value: DashboardFilters[K]
@@ -159,11 +173,15 @@ export function useDashboard() {
     setFilters(prev => ({ ...prev, period: 'custom', date_start: start, date_end: end }));
   }, []);
 
+  const setIssueFilter = useCallback((issue: IssueFilter) => {
+    setFilters(prev => ({ ...prev, issue }));
+  }, []);
+
   const resetFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
   }, []);
 
-  // ── Helper pour setter loading/error proprement ────────────────
+  // ── Helpers loading/error ─────────────────────────────────────
   const setLoadingKey = useCallback((key: keyof LoadingState, val: boolean) => {
     setLoading(prev => ({ ...prev, [key]: val }));
   }, []);
@@ -176,10 +194,6 @@ export function useDashboard() {
   // LOADERS
   // ─────────────────────────────────────────────────────────────
 
-  /**
-   * Charge les référentiels (offices, sellers, clients, produits).
-   * Appelé une fois à l'entrée dans le dashboard.
-   */
   const loadMeta = useCallback(async () => {
     if (!user) return;
     setLoadingKey('meta', true);
@@ -190,15 +204,11 @@ export function useDashboard() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (meta)';
       setErrorKey('meta', msg);
-      console.error('[useDashboard] loadMeta :', msg);
     } finally {
       setLoadingKey('meta', false);
     }
-  }, [user?.id, filters.offices]);
+  }, [user?.id, filters.offices]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge les KPIs overview.
-   */
   const loadOverview = useCallback(async () => {
     if (!user) return;
     setLoadingKey('overview', true);
@@ -209,15 +219,11 @@ export function useDashboard() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (overview)';
       setErrorKey('overview', msg);
-      console.error('[useDashboard] loadOverview :', msg);
     } finally {
       setLoadingKey('overview', false);
     }
-  }, [user?.id, JSON.stringify(filters)]);
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge toutes les données de la section financière.
-   */
   const loadFinancial = useCallback(async () => {
     if (!user) return;
     setLoadingKey('financial', true);
@@ -239,26 +245,24 @@ export function useDashboard() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (financial)';
       setErrorKey('financial', msg);
-      console.error('[useDashboard] loadFinancial :', msg);
     } finally {
       setLoadingKey('financial', false);
     }
-  }, [user?.id, JSON.stringify(filters)]);
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge toutes les données de la section Sales.
-   */
   const loadSales = useCallback(async () => {
     if (!user) return;
     setLoadingKey('sales', true);
     setErrorKey('sales', null);
     try {
-      const [salesTimeline, salesMix, topSellers, topProducts, topClients] = await Promise.all([
+      const [salesTimeline, salesMix, topSellers, topProducts, topClients, issueStats] = await Promise.all([
         apiPost<DashboardState['salesTimeline']>('sales/timeline', user, filters),
         apiPost<DashboardState['salesMix']>('sales/mix', user, filters),
         apiPost<DashboardState['topSellers']>('sales/top-sellers', user, filters),
         apiPost<DashboardState['topProducts']>('sales/top-products', user, filters),
         apiPost<DashboardState['topClients']>('sales/top-clients', user, filters),
+        // issue stats ignorent le filtre issue (on veut toujours voir pending+canceled)
+        apiPost<DashboardState['issueStats']>('sales/issue-stats', user, { ...filters, issue: undefined }),
       ]);
       setData(prev => ({
         ...prev,
@@ -267,19 +271,16 @@ export function useDashboard() {
         topSellers,
         topProducts,
         topClients,
+        issueStats,
       }));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (sales)';
       setErrorKey('sales', msg);
-      console.error('[useDashboard] loadSales :', msg);
     } finally {
       setLoadingKey('sales', false);
     }
-  }, [user?.id, JSON.stringify(filters)]);
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge la section MLM / PV.
-   */
   const loadMlm = useCallback(async () => {
     if (!user) return;
     setLoadingKey('mlm', true);
@@ -290,15 +291,11 @@ export function useDashboard() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (mlm)';
       setErrorKey('mlm', msg);
-      console.error('[useDashboard] loadMlm :', msg);
     } finally {
       setLoadingKey('mlm', false);
     }
-  }, [user?.id, JSON.stringify(filters)]);
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge la section Clients.
-   */
   const loadClients = useCallback(async () => {
     if (!user) return;
     setLoadingKey('clients', true);
@@ -309,15 +306,11 @@ export function useDashboard() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (clients)';
       setErrorKey('clients', msg);
-      console.error('[useDashboard] loadClients :', msg);
     } finally {
       setLoadingKey('clients', false);
     }
-  }, [user?.id, JSON.stringify(filters)]);
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge la section Stock.
-   */
   const loadStock = useCallback(async () => {
     if (!user) return;
     setLoadingKey('stock', true);
@@ -328,62 +321,87 @@ export function useDashboard() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue (stock)';
       setErrorKey('stock', msg);
-      console.error('[useDashboard] loadStock :', msg);
     } finally {
       setLoadingKey('stock', false);
     }
-  }, [user?.id, JSON.stringify(filters)]);
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Charge les données de la section active + overview systématiquement.
-   */
   const loadSectionData = useCallback(async (section: DashboardSection) => {
     await loadOverview();
-
     switch (section) {
-      case 'overview':
-        break;
-      case 'financial':
-        await loadFinancial();
-        break;
-      case 'sales':
-        await loadSales();
-        break;
-      case 'mlm':
-        await loadMlm();
-        break;
-      case 'clients':
-        await loadClients();
-        break;
-      case 'stock':
-        await loadStock();
-        break;
-      case 'sellers':
-        await loadFinancial(); // bySeller réutilisé
-        break;
-      case 'offices':
-        await loadFinancial(); // byOffice réutilisé
-        break;
-      case 'products':
-        await loadSales(); // topProducts réutilisé
-        break;
+      case 'overview': break;
+      case 'financial': await loadFinancial(); break;
+      case 'sales':     await loadSales(); break;
+      case 'mlm':       await loadMlm(); break;
+      case 'clients':   await loadClients(); break;
+      case 'stock':     await loadStock(); break;
+      case 'sellers':   await loadFinancial(); break;
+      case 'offices':   await loadFinancial(); break;
+      case 'products':  await loadSales(); break;
     }
   }, [loadOverview, loadFinancial, loadSales, loadMlm, loadClients, loadStock]);
 
-  // ── Navigation entre sections ─────────────────────────────────
   const navigateTo = useCallback((section: DashboardSection) => {
     setActiveSection(section);
     loadSectionData(section);
   }, [loadSectionData]);
 
-  // ── Chargement initial ────────────────────────────────────────
+  // ── Téléchargement PDF ────────────────────────────────────────
+  /**
+   * Télécharge un rapport PDF via le backend.
+   * type: 'seller' | 'office'
+   * targetId: ID du seller ou nom du bureau
+   */
+  const downloadReport = useCallback(async (
+    type: 'seller' | 'office',
+    targetId: string,
+    targetName: string
+  ) => {
+    if (!user) return;
+    try {
+      const body = {
+        user,
+        type,
+        targetId,
+        period: filters.period,
+        date_start: filters.date_start,
+        date_end: filters.date_end,
+        offices: filters.offices,
+        issue: filters.issue ?? 'valid',
+      };
+
+      const res = await fetch(`${API_BASE}/stats/report/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message ?? 'Erreur lors du téléchargement');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rapport_${type}_${targetName.replace(/\s+/g, '_')}_${filters.period}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('[useDashboard] downloadReport :', e);
+      alert('Erreur lors du téléchargement du rapport. Veuillez réessayer.');
+    }
+  }, [user, filters]);
+
+  // ── Effets ────────────────────────────────────────────────────
   useEffect(() => {
     loadMeta();
     loadSectionData('overview');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Rechargement automatique quand les filtres changent ───────
-  // (uniquement si des données existent déjà pour cette section)
   useEffect(() => {
     if (data.overview !== null) {
       loadSectionData(activeSection);
@@ -397,14 +415,20 @@ export function useDashboard() {
     data,
     loading,
     errors,
+    theme,
     // Actions filtres
     updateFilter,
     setPeriod,
     setCustomDates,
+    setIssueFilter,
     resetFilters,
     // Navigation
     navigateTo,
-    // Loaders manuels (si refresh voulu)
+    // Thème
+    toggleTheme,
+    // Téléchargement
+    downloadReport,
+    // Refresh
     refresh: () => loadSectionData(activeSection),
   };
 }

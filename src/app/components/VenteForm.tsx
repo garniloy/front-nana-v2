@@ -1,4 +1,4 @@
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
 //const backendUrl = 'http://localhost:3000';
 
 
@@ -355,10 +355,7 @@ export default function Vente({ onclose }: onCloseProps) {
   const fetchAll = async (office: string) => {
     setLoading(true);
     try {
-      const officeConstraint =
-        user.owner || user.role === 'superuser'
-          ? office ? { office } : {}
-          : { office: user.office };
+      const officeConstraint = { office : office};
 
       const [stockRes, prodServRes, sellersRes, clientsRes] = await Promise.all([
         getDataFromTableWithConstraints('stock', {
@@ -398,9 +395,7 @@ export default function Vente({ onclose }: onCloseProps) {
       resetSell();
       fetchAll(user.office);
       const ownerId    = String(user?.promoted_by ?? '');
-      const officeName = user?.owner || user?.role === 'superuser'
-        ? selectedOffice
-        : user?.office ?? '';
+      const officeName = user?.office ;
 
       if (ownerId) {
           setSell((d: SellState) => {
@@ -424,9 +419,7 @@ export default function Vente({ onclose }: onCloseProps) {
     fetchAll(selectedOffice);
 
     const ownerId    = String(user?.promoted_by ?? '');
-    const officeName = user?.owner || user?.role === 'superuser'
-        ? selectedOffice
-        : user?.office ?? '';
+    const officeName = selectedOffice;
 
     if (ownerId) {
         setSell((d: SellState) => {
@@ -434,7 +427,7 @@ export default function Vente({ onclose }: onCloseProps) {
             d.details.sellerName = officeName;
         });
     }
-}, [selectedOffice||""]);
+}, [selectedOffice]);
 
   // ── Re-run recomputeAll whenever clientKind or sellerObj changes ──────────
   // This is the reactive hook that makes the form "react immediately":
@@ -448,9 +441,9 @@ export default function Vente({ onclose }: onCloseProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sell.clientKind, sell.seller]);
 
-  // ── Step tracker ──────────────────────────────────────────────────────────
+  // ── Step tracker ──────────────────────────────────────────────────────────{ label: 'Vendeur',  on: !!sell.sellerObj || !!sell.seller  },
   const steps: Step[] = [
-    { label: 'Vendeur',  on: !!sell.sellerObj || !!sell.seller  },
+    
     { label: 'Client',   on: !!sell.clientObj },
     { label: 'Paiement', on: !!sell.payment_mode },
     { label: 'Articles', on: sell.details.alements.length > 0 },
@@ -757,12 +750,13 @@ function removeItem(idx: number) {
         payment_mode:   sell.payment_mode,
         total_amount:   sell.total_amount,
         total_benefice: sell.total_benefice,
-        office:         user.owner || user.role ==='superuser'? selectedOffice || '' || '' : user.office,
+        office:         user.owner ? selectedOffice : user.office,
         date:           now,
         bill_sent:      false,
         total_pv:       sell.total_pv,
-        waiting_reglement: sell.payment_mode === "attente_paiement" || sell.payment_mode === "paiement_livraison"? true : false,
-        date_reglement: sell.payment_mode === "attente_paiement" || sell.payment_mode === "paiement_livraison"? null : now,
+        waiting_reglement: sell.payment_mode === "attente_paiement" ? true : false,
+        date_reglement: sell.payment_mode === "attente_paiement" ? null : now,
+        issue : sell.payment_mode === "attente_paiement" ? 'pending' : 'valid',
         details:        sell.details,   // includes commission
       };
 
@@ -770,14 +764,14 @@ function removeItem(idx: number) {
         id:      id,
         name:    sell.details.clientName || sell.client || 'Inconnu',
         amount:  sell.total_amount,
-        office:  user.owner || user.role === 'superuser' ? selectedOffice || '' : user.office,
+        office:  user.owner ? selectedOffice || '' : user.office,
         manager: user.id,
       };
       
 
       console.log(activity, newSellEntry)
       const response = await createSellData({
-        office:   user.owner || user.role === 'superuser' ? selectedOffice || '' : user.office,
+        office:   user.owner  ? selectedOffice : user.office,
         sell:     newSellEntry,   // ← use the local value
         activity,
       });
@@ -1162,7 +1156,7 @@ function removeItem(idx: number) {
               {changeView ? 'Afficher le formulaire' : 'Afficher les détails'}
             </button>
           </div>
-          {user.owner || user.role === 'superuser' && <OfficeSelector  onOfficeSelect={(officeName) => setSelectedOffice(officeName)} />}
+          {user.owner  && <OfficeSelector  onOfficeSelect={(officeName) => setSelectedOffice(officeName)} />}
           <button className="btn" onClick={() => onclose?.(true)}>back</button>
         </div>
         {loading && (
@@ -1181,7 +1175,7 @@ function removeItem(idx: number) {
           </div>
         )}
 
-        {changeView && <Bills office={user.owner || user.role ==='superuser'? selectedOffice || '' || '' : user.office} />}
+        {changeView && <Bills office={user.owner ? selectedOffice : user.office} />}
         {!changeView && (
           <div className="vente-main">
 

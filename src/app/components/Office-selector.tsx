@@ -4,7 +4,8 @@ import '../css/sudo.css';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
+//const backendUrl = 'http://localhost:3000';
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
     const res = await fetch(backendUrl + '/crud/getwith/' + table, {

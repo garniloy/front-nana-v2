@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const backendUrl = 'https://backend-nana-v2.onrender.com';
+const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
 //const backendUrl = 'http://localhost:3000';
 
 const getDataFromTableWithConstraints = async (table: string, body: object) => {
@@ -39,6 +39,7 @@ type Activity = {
     // nouveaux champs
     waiting_reglement: boolean;
     date_reglement: string | null;
+    issue : string
 };
 
 type Filter = 'today' | 'week' | 'month';
@@ -59,11 +60,12 @@ function isPendingMode(mode: string) {
 function paymentLabel(mode: string) {
     if (mode === 'attente_paiement') return 'En attente';
     if (mode === 'paiement_livraison') return 'À la livraison';
+    if (mode === 'not_valid') return 'Annule';
     return mode;
 }
 
-function paymentBadgeClass(mode: string, waiting: boolean) {
-    console.log(mode)
+function paymentBadgeClass( waiting: boolean) {
+    
     if (waiting) return 'badge badge-danger';
     return 'badge badge-success';
 }
@@ -113,6 +115,7 @@ export default function Bills({office}:props) {
     const [validating, setValidating] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [successId, setSuccessId] = useState<string | null>(null);
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
     
 
     useEffect(() => {
@@ -185,7 +188,37 @@ export default function Bills({office}:props) {
             setActivities((prev) =>
                 prev.map((a) =>
                     a.id === activity.id
-                        ? { ...a, waiting_reglement: false, date_reglement: new Date().toISOString() }
+                        ? { ...a, waiting_reglement: false, date_reglement: new Date().toISOString(), issue : 'valid' }
+                        : a
+                )
+            );
+            
+            setTimeout(() => setSuccessId(null), 2000);
+        } catch (e: any) {
+            showError(e.message || 'Erreur lors de la validation du règlement');
+        } finally {
+            setValidating(null);
+        }
+    }
+
+    // ── Annuler le règlement d'un paiement en attente
+    async function annulerReglement(activity: Activity) {
+        if (validating) return;
+        setValidating(activity.id);
+        try {
+            const res = await fetch(`${backendUrl}/activity/reglement/cancel/${activity.id}/${office}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(activity.details.alements),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Erreur serveur');
+
+            // Mise à jour locale : la carte revient à la normale
+            setActivities((prev) =>
+                prev.map((a) =>
+                    a.id === activity.id
+                        ? { ...a, waiting_reglement: false, issue : 'canceled'}
                         : a
                 )
             );
@@ -199,8 +232,20 @@ export default function Bills({office}:props) {
     }
 
     const filtered = filterActivities(activities, filter);
-    const totalAmount = filtered.reduce((s, a) => s + a.total_amount, 0);
-    const totalBenef = filtered.reduce((s, a) => s + a.total_benefice, 0);
+
+    const validActivities = filtered.filter(
+    (activity) => activity.issue === "valid"
+    );
+
+    const totalAmount = validActivities.reduce(
+    (sum, activity) => sum + activity.total_amount,
+    0
+    );
+
+    const totalBenef = validActivities.reduce(
+    (sum, activity) => sum + activity.total_benefice,
+    0
+    );
     const pendingCount = filtered.filter((a) => a.waiting_reglement).length;
 
     return (
@@ -302,6 +347,29 @@ export default function Bills({office}:props) {
         .validate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .validate-btn.loading { animation: pulse 1s ease-in-out infinite; }
 
+        /* ── cancel button ── */
+        .cancel-v-btn {
+          display: inline-flex; align-items: center; gap: 0.3rem;
+          padding: 0.25rem 0.6rem;
+          border-radius: var(--radius-full);
+          font-size: var(--text-xs);
+          font-weight: var(--weight-semibold);
+          cursor: pointer;
+          background: var(--nm-bg);
+          color: #ca1c1c;
+          box-shadow: 3px 3px 6px var(--nm-dark), -3px -3px 6px var(--nm-light);
+          transition: var(--transition-all);
+          white-space: nowrap;
+        }
+        .cancel-v-btn:hover:not(:disabled) {
+          box-shadow: 4px 4px 8px var(--nm-dark), -4px -4px 8px var(--nm-light);
+        }
+        .cancel-v-btn:active:not(:disabled) {
+          box-shadow: inset 2px 2px 4px var(--nm-dark), inset -2px -2px 4px var(--nm-light);
+        }
+        .cancel-v-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .cancel-v-btn.loading { animation: pulse 1s ease-in-out infinite; }
+
         @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
         /* ── Stat strip ── */
@@ -382,16 +450,19 @@ export default function Bills({office}:props) {
                             <span className="text-label">Factures</span>
                             <span className="text-heading text-xl">{filtered.length}</span>
                         </div>
+                        {user.role === 'superuser' && 
                         <div className="stat-box">
                             <span className="text-label">Total</span>
                             <span className="text-heading text-xl">{formatAmount(totalAmount)}</span>
-                        </div>
+                        </div>}
+                        {user.role === 'superuser' && 
                         <div className="stat-box">
                             <span className="text-label">Bénéfice</span>
                             <span className="text-heading text-xl" style={{ color: 'var(--nm-brand)' }}>
                                 {formatAmount(totalBenef)}
                             </span>
-                        </div>
+                        </div>}
+                        
                         {/* Badge en attente uniquement si > 0 */}
                         {pendingCount > 0 && (
                             <div className="stat-box pending-box">
@@ -423,15 +494,16 @@ export default function Bills({office}:props) {
                             const isValidating = validating === activity.id;
                             const isSuccess = successId === activity.id;
                             const isPending = activity.waiting_reglement;
+                            const isCancel = activity.issue === 'canceled' ? true : false
 
                             return (
                                 <div
                                     key={activity.id}
-                                    className={`bill-card${isSuccess ? ' success-flash' : ''}${isPending ? ' pending' : ''}`}
+                                    className={`bill-card${isSuccess ? ' success-flash' : ''}${isPending || isCancel ? ' pending' : ''}`}
                                     style={{ width: '100%' }}
                                 >
                                     {/* Avatar */}
-                                    <div className={`avatar${isPending ? ' pending' : ''}`}>
+                                    <div className={`avatar${isPending || isCancel ? ' pending' : ''}`}>
                                         {getInitials(activity.details.clientName)}
                                     </div>
 
@@ -443,8 +515,8 @@ export default function Bills({office}:props) {
                                             <span className="text-label">{formatDate(activity.date)}</span>
 
                                             {/* Badge paiement — rouge si en attente */}
-                                            <span className={paymentBadgeClass(activity.payment_mode, isPending)}>
-                                                {paymentLabel(activity.payment_mode)}
+                                            <span className={paymentBadgeClass(isPending)}>
+                                                {paymentLabel(isCancel? activity.issue : activity.payment_mode)}
                                             </span>
 
                                             {activity.bill_sent && (
@@ -453,6 +525,7 @@ export default function Bills({office}:props) {
                                         </div>
 
                                         {/* Montant : négatif/rouge si en attente, normal sinon */}
+                                        {user.role === 'superuser' && 
                                         <div className="row gap-sm align-center">
                                             {isPending ? (
                                                 <span className="amount-pending">
@@ -468,7 +541,7 @@ export default function Bills({office}:props) {
                                                     +{formatAmount(activity.total_benefice)}
                                                 </span>
                                             )}
-                                        </div>
+                                        </div>}
 
                                         {/* Articles */}
                                         <div className="row gap-xs wrap">
@@ -493,6 +566,14 @@ export default function Bills({office}:props) {
                                                     onClick={() => validateReglement(activity)}
                                                 >
                                                     {isValidating ? '⏳' : '✓'} Valider le paiement
+                                                </button>
+                                                <button
+                                                    className={`cancel-v-btn${isValidating ? ' loading' : ''}`}
+                                                    disabled={!!validating}
+                                                    onClick={() => annulerReglement(activity)}
+                                                    style={{ marginLeft: '0.45rem' }}
+                                                >
+                                                    {isValidating ? '⏳' : 'x'} Supprimer la vente
                                                 </button>
                                             </div>
                                         )}
