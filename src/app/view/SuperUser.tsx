@@ -187,7 +187,7 @@ async function updateDataToTable(table: string, fields: object) {
     };
 
 */
-//delete data
+/*delete data
 async function deleteDataFromTable(table:string, fields: object) {
     const response = await fetch(backendUrl + '/crud/delete/' + table, {
         method: 'POST',
@@ -200,7 +200,7 @@ async function deleteDataFromTable(table:string, fields: object) {
     return data;
 }
 
-// global actions
+*/
 
 
 
@@ -246,40 +246,12 @@ export default function sudo(){
         promoted_by : string
     };
 
-    type response = {
-        id : number;
-        success : Boolean
-    }
+   
 
-    // ---- COMPLEMENTED TYPES ----
-    type Goal = {
-        id: number;
-        name: string;
-        target: number;
-        current: number;
-        office: string;
-    };
-
-    type Charge = {
-        id: number;
-        name: string;
-        amount: number;
-        type: 'fixe' | 'variable';
-        office: string;
-    };
-
-    type Cashout = {
-        id: number;
-        name: string;
-        amount: number;
-        manager_phone: string;
-        date: string;
-        office: string;
-    };
     // ---- END COMPLEMENTED TYPES ----
 
     // STATES AND VARIABLES
-    const [vue, setVue] = useState('')
+    const [vue, setVue] = useState('office-manager')
     // --view office states
     const [officeListe, setofficeListe] = useImmer<Office[]>([]);
     const [curentOffice, setcurentOffice] = useState('');
@@ -330,52 +302,8 @@ export default function sudo(){
         
     })
 
-    // ---- COMPLEMENTED: charge-goal states ----
-    const [goalListe, setGoalListe] = useImmer<Goal[]>([]);
-    const [chargeListe, setChargeListe] = useImmer<Charge[]>([]);
-    const [cashoutListe, setCashoutListe] = useImmer<Cashout[]>([]);
 
-    const [showNewGoalForm, setShowNewGoalForm] = useState(false);
-    const [showNewChargeForm, setShowNewChargeForm] = useState(false);
-    const [showNewCashoutForm, setShowNewCashoutForm] = useState(false);
 
-    // per-item modify form open ids (same pattern as manager)
-    const [modifGoalOpenId, setModifGoalOpenId] = useState<number | null>(null);
-    const [modifChargeOpenId, setModifChargeOpenId] = useState<number | null>(null);
-    const [modifCashoutOpenId, setModifCashoutOpenId] = useState<number | null>(null);
-
-    const getInitialGoal = () => ({ name: '', target: 0, office: curentOffice });
-    const [newGoal, setNewGoal] = useImmer(getInitialGoal());
-    const resetGoal = () => setNewGoal(getInitialGoal());
-
-    const getInitialCharge = () => ({ name: '', amount: 0, type: 'fixe' as 'fixe' | 'variable', office: curentOffice });
-    const [newCharge, setNewCharge] = useImmer(getInitialCharge());
-    const resetCharge = () => setNewCharge(getInitialCharge());
-
-    const getInitialCashout = () => ({ name: '', amount: 0, manager_phone: '', date: '', office: curentOffice });
-    const [newCashout, setNewCashout] = useImmer(getInitialCashout());
-    const resetCashout = () => setNewCashout(getInitialCashout());
-
-    const getInitialModifyGoal = () => ({ name: '', target: 0 });
-    const [modifyGoalInfo, setModifyGoalInfo] = useImmer(getInitialModifyGoal());
-    const resetModifyGoal = () => setModifyGoalInfo(getInitialModifyGoal());
-
-    const getInitialModifyCharge = () => ({ name: '', amount: 0 });
-    const [modifyChargeInfo, setModifyChargeInfo] = useImmer(getInitialModifyCharge());
-    const resetModifyCharge = () => setModifyChargeInfo(getInitialModifyCharge());
-
-    const getInitialModifyCashout = () => ({ name: '', amount: 0 });
-    const [modifyCashoutInfo, setModifyCashoutInfo] = useImmer(getInitialModifyCashout());
-    const resetModifyCashout = () => setModifyCashoutInfo(getInitialModifyCashout());
-
-    const [chargeGoalVisibility, setChargeGoalVisibility] = useImmer({
-        emptyGoal: true,
-        thereIsGoal: false,
-        emptyCharge: true,
-        thereIsCharge: false,
-        emptyCashout: true,
-        thereIsCashout: false,
-    });
     // ---- END COMPLEMENTED charge-goal states ----
 
     // loading animation state  // should have loading components
@@ -577,7 +505,7 @@ export default function sudo(){
             where : { id: id }
         }
         try {
-            const response = await updateDataToTable("manager", body);
+            const response = await updateDataToTable("office", body);
             // COMPLEMENTED: remove from list on success
             if (response.success === true) {
                 setofficeListe(draft => {
@@ -633,242 +561,6 @@ export default function sudo(){
         }
     }
 
-    // ---- COMPLEMENTED: goal CRUD functions (same pattern as office/manager) ----
-    async function createGoal() {
-        if (isOperating.createGoal === true) return;
-        setOperating(dr=>{ dr.createGoal = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { ...newGoal, office: curentOffice, current: 0 };
-        try {
-            const response: response = await createDataToTable("goal", body);
-            if (response.success === true) {
-                setGoalListe(dr=>{ dr.push({ id: response.id, name: body.name, target: body.target, current: 0, office: body.office }) });
-                setChargeGoalVisibility(dr=>{ dr.thereIsGoal = true; dr.emptyGoal = false });
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            resetGoal();
-            setShowNewGoalForm(false);
-            setOperating(dr=>{ dr.createGoal = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-
-    async function modifyGoal(id: number) {
-        if (isOperating.updateGoal === true) return;
-        setOperating(dr=>{ dr.updateGoal = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { set: modifyGoalInfo, where: { id } };
-        try {
-            const response = await updateDataToTable("goal", body);
-            if (response.success === true) {
-                setGoalListe(draft => {
-                    const target = draft.find(g => g.id === id);
-                    if (target) {
-                        if (modifyGoalInfo.name)   target.name   = modifyGoalInfo.name;
-                        if (modifyGoalInfo.target)  target.target = modifyGoalInfo.target;
-                    }
-                });
-                setModifGoalOpenId(null);
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            resetModifyGoal();
-            setOperating(dr=>{ dr.updateGoal = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-
-    async function deleteGoal(id: number) {
-        if (isOperating.deleteGoal === true) return;
-        setOperating(dr=>{ dr.deleteGoal = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { contraints: { id }, returning: false };
-        try {
-            const response = await deleteDataFromTable("goal", body);
-            if (response.success === true) {
-                setGoalListe(draft => {
-                    const idx = draft.findIndex(g => g.id === id);
-                    if (idx !== -1) draft.splice(idx, 1);
-                });
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            setOperating(dr=>{ dr.deleteGoal = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-    // ---- END COMPLEMENTED goal CRUD ----
-
-    // ---- COMPLEMENTED: charge CRUD functions (same pattern) ----
-    async function createCharge() {
-        if (isOperating.createCharge === true) return;
-        setOperating(dr=>{ dr.createCharge = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { ...newCharge, office: curentOffice };
-        try {
-            const response: response = await createDataToTable("charge", body);
-            if (response.success === true) {
-                setChargeListe(dr=>{ dr.push({ id: response.id, name: body.name, amount: body.amount, type: body.type, office: body.office }) });
-                setChargeGoalVisibility(dr=>{ dr.thereIsCharge = true; dr.emptyCharge = false });
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            resetCharge();
-            setShowNewChargeForm(false);
-            setOperating(dr=>{ dr.createCharge = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-
-    async function modifyCharge(id: number) {
-        if (isOperating.updateCharge === true) return;
-        setOperating(dr=>{ dr.updateCharge = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { set: modifyChargeInfo, where: { id } };
-        try {
-            const response = await updateDataToTable("charge", body);
-            if (response.success === true) {
-                setChargeListe(draft => {
-                    const target = draft.find(c => c.id === id);
-                    if (target) {
-                        if (modifyChargeInfo.name)   target.name   = modifyChargeInfo.name;
-                        if (modifyChargeInfo.amount)  target.amount = modifyChargeInfo.amount;
-                    }
-                });
-                setModifChargeOpenId(null);
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            resetModifyCharge();
-            setOperating(dr=>{ dr.updateCharge = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-
-    async function deleteCharge(id: number) {
-        if (isOperating.deleteCharge === true) return;
-        setOperating(dr=>{ dr.deleteCharge = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { contraints: { id }, returning: false };
-        try {
-            const response = await deleteDataFromTable("charge", body);
-            if (response.success === true) {
-                setChargeListe(draft => {
-                    const idx = draft.findIndex(c => c.id === id);
-                    if (idx !== -1) draft.splice(idx, 1);
-                });
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            setOperating(dr=>{ dr.deleteCharge = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-    // ---- END COMPLEMENTED charge CRUD ----
-
-    // ---- COMPLEMENTED: cashout CRUD functions (same pattern) ----
-    async function createCashout() {
-        if (isOperating.createCashout === true) return;
-        setOperating(dr=>{ dr.createCashout = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { ...newCashout, office: curentOffice, date: new Date().toISOString().split('T')[0] };
-        try {
-            const response: response = await createDataToTable("cashout", body);
-            if (response.success === true) {
-                setCashoutListe(dr=>{ dr.push({ id: response.id, name: body.name, amount: body.amount, manager_phone: body.manager_phone, date: body.date, office: body.office }) });
-                setChargeGoalVisibility(dr=>{ dr.thereIsCashout = true; dr.emptyCashout = false });
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            resetCashout();
-            setShowNewCashoutForm(false);
-            setOperating(dr=>{ dr.createCashout = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-
-    async function modifyCashout(id: number) {
-        if (isOperating.updateCashout === true) return;
-        setOperating(dr=>{ dr.updateCashout = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { set: modifyCashoutInfo, where: { id } };
-        try {
-            const response = await updateDataToTable("cashout", body);
-            if (response.success === true) {
-                setCashoutListe(draft => {
-                    const target = draft.find(c => c.id === id);
-                    if (target) {
-                        if (modifyCashoutInfo.name)   target.name   = modifyCashoutInfo.name;
-                        if (modifyCashoutInfo.amount)  target.amount = modifyCashoutInfo.amount;
-                    }
-                });
-                setModifCashoutOpenId(null);
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            resetModifyCashout();
-            setOperating(dr=>{ dr.updateCashout = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-
-    async function deleteCashout(id: number) {
-        if (isOperating.deleteCashout === true) return;
-        setOperating(dr=>{ dr.deleteCashout = true })
-        setLoading(dr=>{ dr.global = true })
-
-        const body = { contraints: { id }, returning: false };
-        try {
-            const response = await deleteDataFromTable("cashout", body);
-            if (response.success === true) {
-                setCashoutListe(draft => {
-                    const idx = draft.findIndex(c => c.id === id);
-                    if (idx !== -1) draft.splice(idx, 1);
-                });
-            } else {
-                setError('Un probleme serveur est survenu');
-            }
-        } catch (error) {
-            setError('Un proble de connection est survenu');
-        } finally {
-            setOperating(dr=>{ dr.deleteCashout = false })
-            setLoading(dr=>{ dr.global = false })
-        }
-    }
-    // ---- END COMPLEMENTED cashout CRUD ----
 
     // flow ...
     useEffect(()=>{
@@ -954,67 +646,10 @@ export default function sudo(){
             
         }
 
-        // COMPLEMENTED: fetch charge-goal data when that view is opened
-        if (vue === 'charge-goal') {
-            setLoading(draft=>{ draft.fetchGoal = true; draft.fetchCharge = true; draft.fetchCashout = true });
+       
 
-            const ownerKey = user.owner ? user.id : user.promoted_by;
-
-            const fetchGoals = async () => {
-                const field = { fields: ['id', 'name', 'target', 'current', 'office'], constraints: { owner: ownerKey, is_deleted: false } };
-                try {
-                    const data = await getDataFromTableWithConstraints('goal', field);
-                    if (data.succes === true && data.list.length > 0) {
-                        setGoalListe(draft=>{ draft.push(...data.list) });
-                        setChargeGoalVisibility(dr=>{ dr.thereIsGoal = true; dr.emptyGoal = false });
-                    } else {
-                        setChargeGoalVisibility(dr=>{ dr.emptyGoal = true; dr.thereIsGoal = false });
-                    }
-                } catch {
-                    setError('Un proble est survenu');
-                } finally {
-                    setLoading(draft=>{ draft.fetchGoal = false });
-                }
-            };
-
-            const fetchCharges = async () => {
-                const field = { fields: ['id', 'name', 'amount', 'type', 'office'], constraints: { owner: ownerKey, is_deleted: false } };
-                try {
-                    const data = await getDataFromTableWithConstraints('charge', field);
-                    if (data.succes === true && data.list.length > 0) {
-                        setChargeListe(draft=>{ draft.push(...data.list) });
-                        setChargeGoalVisibility(dr=>{ dr.thereIsCharge = true; dr.emptyCharge = false });
-                    } else {
-                        setChargeGoalVisibility(dr=>{ dr.emptyCharge = true; dr.thereIsCharge = false });
-                    }
-                } catch {
-                    setError('Un proble est survenu');
-                } finally {
-                    setLoading(draft=>{ draft.fetchCharge = false });
-                }
-            };
-
-            const fetchCashouts = async () => {
-                const field = { fields: ['id', 'name', 'amount', 'manager_phone', 'date', 'office'], constraints: { owner: ownerKey, is_deleted: false } };
-                try {
-                    const data = await getDataFromTableWithConstraints('cashout', field);
-                    if (data.succes === true && data.list.length > 0) {
-                        setCashoutListe(draft=>{ draft.push(...data.list) });
-                        setChargeGoalVisibility(dr=>{ dr.thereIsCashout = true; dr.emptyCashout = false });
-                    } else {
-                        setChargeGoalVisibility(dr=>{ dr.emptyCashout = true; dr.thereIsCashout = false });
-                    }
-                } catch {
-                    setError('Un proble est survenu');
-                } finally {
-                    setLoading(draft=>{ draft.fetchCashout = false });
-                }
-            };
-
-            fetchGoals();
-            fetchCharges();
-            fetchCashouts();
-        }
+            
+        
 
     },[vue])
 
@@ -1136,32 +771,9 @@ export default function sudo(){
 
     },[curentOffice]);
 
-    // COMPLEMENTED: sync chargeGoalVisibility when lists change
-    useEffect(()=>{
-        setChargeGoalVisibility(dr=>{
-            dr.thereIsGoal = goalListe.length > 0
-            dr.emptyGoal   = goalListe.length <= 0
-        })
-    },[goalListe])
-
-    useEffect(()=>{
-        setChargeGoalVisibility(dr=>{
-            dr.thereIsCharge = chargeListe.length > 0
-            dr.emptyCharge   = chargeListe.length <= 0
-        })
-    },[chargeListe])
-
-    useEffect(()=>{
-        setChargeGoalVisibility(dr=>{
-            dr.thereIsCashout = cashoutListe.length > 0
-            dr.emptyCashout   = cashoutListe.length <= 0
-        })
-    },[cashoutListe])
+    
 
 // end flow ...
-
-    // COMPLEMENTED: computed total charges for the month
-    const totalCharges = chargeListe.reduce((acc, c) => acc + c.amount, 0);
 
 /*when role will be able 
 <select  name="officeselction" id="officeselction">
@@ -1423,217 +1035,6 @@ export default function sudo(){
 
                 </div>
             )}
-            { handleView('charge-goal') && <div className="goal-charge">
-            <div className="goal-info surface">
-                <h3>Gestion des objectifs</h3>
-                <div className="goal-info-top">
-                    <svg width="24" height="24" onClick={()=>{ setShowNewGoalForm(!showNewGoalForm) }} className="sidebar-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                            <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                        </svg>
-                    {/* COMPLEMENTED: new-goal form wired up */}
-                    { showNewGoalForm && <div className="new-goal">
-                        <input value={newGoal.name} onChange={(e)=>{ setNewGoal(draft=>{ draft.name = e.target.value }) }} type="text" placeholder="Nom de l'objectif" />
-                        <input value={newGoal.target || ''} onChange={(e)=>{ setNewGoal(draft=>{ draft.target = Number(e.target.value) }) }} type="number" placeholder="Montant cible" />
-                        <button className='create-btn' onClick={()=>{ createGoal() }}>Créer</button>
-                    </div>}
-                </div>
-                <div className="goal-info-midlle">
-                    {isLoading.fetchGoal && <p>Loading...</p>}
-                    { chargeGoalVisibility.emptyGoal && <div className="no-cont-image">nothing yet...</div>}
-                    { chargeGoalVisibility.thereIsGoal && goalListe.map((goal)=>(
-                        <div key={goal.id} className="goal-item">
-                            <div className="goal-item-top">
-                                <svg width="24" height="24" className="sidebar-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                </svg>
-                                {/* COMPLEMENTED: display real goal name */}
-                                <p>{goal.name}</p>
-                            </div>
-                            <div className="goal-item-midlle">
-                                <p>objectif : {goal.target}</p>
-                                <p>actuel : {goal.current}</p>
-                            </div>
-                            <div className="goal-item-bottom">
-                                {/* COMPLEMENTED: computed percentage */}
-                                <p>pourcentage : {goal.target > 0 ? Math.round((goal.current / goal.target) * 100) : 0}%</p>
-                            </div>
-                            {/* COMPLEMENTED: goal management controls */}
-                            <div className="goal-managent">
-                                <div className="row">
-                                    <svg width="16" height="16" onClick={()=>{ setModifGoalOpenId(modifGoalOpenId === goal.id ? null : goal.id); resetModifyGoal(); }} className="modify-goal-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                        <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                    </svg>
-                                    <svg width="16" height="16" onClick={()=>{ deleteGoal(goal.id) }} className="delete-goal-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                        <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                    </svg>
-                                </div>
-                                { modifGoalOpenId === goal.id && <div className="modify-zone row">
-                                    <input value={modifyGoalInfo.name} onChange={(e)=>{ setModifyGoalInfo(draft=>{ draft.name = e.target.value }) }} type="text" placeholder={goal.name} />
-                                    <input value={modifyGoalInfo.target || ''} onChange={(e)=>{ setModifyGoalInfo(draft=>{ draft.target = Number(e.target.value) }) }} type="number" placeholder={String(goal.target)} />
-                                    <svg width="16" height="16" onClick={()=>{ modifyGoal(goal.id) }} className="validate-change" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                        <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                    </svg>
-                                </div>}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div className="charge-cashout-info surface">
-                <h3>Gestion des charge</h3>
-                <div className="charge-cashout-info-top">
-                    <svg width="24" height="24" className="switcher-icon-item" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                            <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                    </svg>
-                    <svg width="24" height="24" className="switcher-icon-item" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                            <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                    </svg>
-                </div>
-                <div className="charge-info-midlle">
-                    <div className="cashout-layer">
-                        <div className="cashout-layer-headedr">
-                            {/* COMPLEMENTED: cashout form toggle wired up */}
-                            <svg width="24" height="24" onClick={()=>{ setShowNewCashoutForm(!showNewCashoutForm) }} className="show-new-cashout-form" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                            </svg>
-                            {/* COMPLEMENTED: new-cashout form wired up */}
-                            { showNewCashoutForm && <div className="new-cashout">
-                                <input value={newCashout.name} onChange={(e)=>{ setNewCashout(draft=>{ draft.name = e.target.value }) }} type="text" placeholder='Description' />
-                                <input value={newCashout.amount || ''} onChange={(e)=>{ setNewCashout(draft=>{ draft.amount = Number(e.target.value) }) }} type="number" placeholder='Montant' />
-                                <input value={newCashout.manager_phone} onChange={(e)=>{ setNewCashout(draft=>{ draft.manager_phone = e.target.value }) }} type="text" placeholder='Tel manager' />
-                                <button className='create-btn' onClick={()=>{ createCashout() }}>Créer</button>
-                            </div>}
-                        </div>
-                        <div className="cashout-layer-body">
-                            {isLoading.fetchCashout && <p>Loading...</p>}
-                            { chargeGoalVisibility.emptyCashout && <div className="no-cont-image">nothing yet...</div>}
-                            {/* COMPLEMENTED: cashout list rendered from state */}
-                            { chargeGoalVisibility.thereIsCashout && cashoutListe.map((cashout)=>(
-                                <div key={cashout.id} className="cashout-item">
-                                    <div className="row">
-                                        <svg width="16" height="16" className="cashout-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                            <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                        </svg>
-                                        <p>{cashout.name}</p>
-                                    </div>
-                                    <p>{cashout.amount}f</p>
-                                    <div className="row">
-                                        <p>manager tel : {cashout.manager_phone}</p>
-                                        <p>date : {cashout.date}</p>
-                                    </div>
-                                    <div className="cashout-managent">
-                                        <div className="row">
-                                            <svg width="16" height="16" onClick={()=>{ setModifCashoutOpenId(modifCashoutOpenId === cashout.id ? null : cashout.id); resetModifyCashout(); }} className="modify-cashout-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                            </svg>
-                                            <svg width="16" height="16" onClick={()=>{ deleteCashout(cashout.id) }} className="delete-cashout-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                            </svg>
-                                        </div>
-                                        { modifCashoutOpenId === cashout.id && <div className="modify-zone row">
-                                            <input value={modifyCashoutInfo.name} onChange={(e)=>{ setModifyCashoutInfo(draft=>{ draft.name = e.target.value }) }} type="text" placeholder={cashout.name} />
-                                            <input value={modifyCashoutInfo.amount || ''} onChange={(e)=>{ setModifyCashoutInfo(draft=>{ draft.amount = Number(e.target.value) }) }} type="number" placeholder={String(cashout.amount)} />
-                                            <svg width="16" height="16" onClick={()=>{ modifyCashout(cashout.id) }} className="validate-change" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                            </svg>
-                                        </div>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="charge-layer">
-                        <div className="type-indicator">
-                            <div className="fix">
-                                <svg width="24" height="24" className="boule-color" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                    <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                </svg>
-                                <p>fixe</p>
-                            </div>
-                            <div className="variable">
-                                <svg width="24" height="24" className="sboule-color" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                    <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                </svg>
-                                <p>variable</p>
-                            </div>
-                        </div>
-                        <div className="charge-layer-headedr">
-                            {/* COMPLEMENTED: charge form toggle wired up */}
-                            <svg width="24" height="24" onClick={()=>{ setShowNewChargeForm(!showNewChargeForm) }} className="show-new-charge-form" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                            </svg>
-                            {/* COMPLEMENTED: new-charge form wired up */}
-                            { showNewChargeForm && <div className="new-charge">
-                                <input value={newCharge.name} onChange={(e)=>{ setNewCharge(draft=>{ draft.name = e.target.value }) }} type="text" placeholder='Nom de la charge' />
-                                <input value={newCharge.amount || ''} onChange={(e)=>{ setNewCharge(draft=>{ draft.amount = Number(e.target.value) }) }} type="number" placeholder='Montant' />
-                                <select value={newCharge.type} onChange={(e)=>{ setNewCharge(draft=>{ draft.type = e.target.value as 'fixe' | 'variable' }) }}>
-                                    <option value="fixe">Fixe</option>
-                                    <option value="variable">Variable</option>
-                                </select>
-                                <button className='create-btn' onClick={()=>{ createCharge() }}>Créer</button>
-                            </div>}
-                        </div>
-                        <div className="charge-layer-body">
-                            {isLoading.fetchCharge && <p>Loading...</p>}
-                            { chargeGoalVisibility.emptyCharge && <div className="no-cont-image">nothing yet...</div>}
-                            {/* COMPLEMENTED: charge list rendered from state */}
-                            { chargeGoalVisibility.thereIsCharge && chargeListe.map((charge)=>(
-                                <div key={charge.id} className="charge-item">
-                                    <div className="row">
-                                        <svg width="16" height="16" className="charge-fix-orvariable-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                            <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                        </svg>
-                                        {/* COMPLEMENTED: display charge name and type */}
-                                        <p>{charge.name} ({charge.type})</p>
-                                    </div>
-                                    <p>{charge.amount}f</p>
-                                    <div className="charge-managent">
-                                        <div className="row">
-                                            <svg width="16" height="16" onClick={()=>{ setModifChargeOpenId(modifChargeOpenId === charge.id ? null : charge.id); resetModifyCharge(); }} className="modify-charge-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                            </svg>
-                                            <svg width="16" height="16" onClick={()=>{ deleteCharge(charge.id) }} className="delete-charge-icon" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                            </svg>
-                                        </div>
-                                        { modifChargeOpenId === charge.id && <div className="modify-zone row">
-                                            <input value={modifyChargeInfo.name} onChange={(e)=>{ setModifyChargeInfo(draft=>{ draft.name = e.target.value }) }} type="text" placeholder={charge.name} />
-                                            <input value={modifyChargeInfo.amount || ''} onChange={(e)=>{ setModifyChargeInfo(draft=>{ draft.amount = Number(e.target.value) }) }} type="number" placeholder={String(charge.amount)} />
-                                            <svg width="16" height="16" onClick={()=>{ modifyCharge(charge.id) }} className="validate-change" fill="#3f4a41" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M9.75 3H3v6.758h1.5V4.5h5.25V3Z"></path>
-                                                <path d="m22.118 9.843-6.75-3.75a.75.75 0 0 0-.75 0l-6.75 3.75a.75.75 0 0 0-.368.66v7.5a.75.75 0 0 0 .39.652l6.75 3.75a.75.75 0 0 0 .36.098.788.788 0 0 0 .368-.098l6.75-3.75a.75.75 0 0 0 .382-.652v-7.5a.749.749 0 0 0-.382-.66ZM14.25 20.478 9 17.56v-5.79l5.25 2.918v5.79ZM15 13.39l-5.205-2.887L15 7.608l5.205 2.895L15 13.39Zm6 4.17-5.25 2.918v-5.79L21 11.77v5.79Z"></path>
-                                            </svg>
-                                        </div>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="charge-footer">
-                            {/* COMPLEMENTED: computed total from state */}
-                            <p>total du mois : {totalCharges}f</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            </div>}
         </main>
     );
 }

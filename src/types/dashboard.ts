@@ -76,10 +76,12 @@ export interface KpiValue {
 
 export interface OverviewData {
   ca: KpiValue;
-  benefice_net: KpiValue;   // anciennement "bénéfice total" = bénéfice net réel
+  benefice_net: KpiValue;
   commission: KpiValue;
   nb_ventes: KpiValue;
   pv: KpiValue;
+  total_charges: KpiValue;           // NOUVEAU
+  benefice_apres_charges: KpiValue;  // NOUVEAU
   dateRange: { start: string; end: string };
 }
 
@@ -146,7 +148,7 @@ export interface IssueStats {
   pending_count: number;
   pending_amount: number;
   canceled_count: number;
-  canceled_rate: number; // % sur (valid + pending + canceled)
+  canceled_rate: number;
 }
 
 // ── MLM ──────────────────────────────────────────────────────────
@@ -155,7 +157,7 @@ export interface MlmSellerEntry {
   seller: string;
   name: string;
   pv: number;
-  is_distributor_purchase?: boolean; // vente bureau → distributeur
+  is_distributor_purchase?: boolean;
 }
 
 export interface MlmStats {
@@ -200,6 +202,34 @@ export interface StockStats {
   stock_actuel: StockActuel[];
 }
 
+// ── Cashout / Charges ────────────────────────────────────────────  NOUVEAU
+
+export interface CashoutEntry {
+  id: number;
+  motif: string;
+  montant: number;
+  created_at: string;
+  office: string;
+  manager: string;
+  is_paid: boolean;
+}
+
+export interface CashoutByMotif {
+  motif: string;
+  total: number;
+  count: number;
+}
+
+export interface CashoutStats {
+  total_charges: number;
+  nb_charges: number;
+  timeline: { date: string; total: number }[];
+  timeline_by_motif: Record<string, number>[];   // [{ date, motif1: n, motif2: n, ... }]
+  motifs: string[];
+  by_motif: CashoutByMotif[];
+  list: CashoutEntry[];
+}
+
 // ── Section active ───────────────────────────────────────────────
 
 export type DashboardSection =
@@ -211,7 +241,8 @@ export type DashboardSection =
   | 'clients'
   | 'sellers'
   | 'offices'
-  | 'stock';
+  | 'stock'
+  | 'charges'; // NOUVEAU
 
 // ── État global du dashboard ─────────────────────────────────────
 
@@ -231,6 +262,7 @@ export interface DashboardState {
   mlm: MlmStats | null;
   clients: ClientsStats | null;
   stock: StockStats | null;
+  cashout: CashoutStats | null;  // NOUVEAU
 }
 
 export interface LoadingState {
@@ -241,6 +273,7 @@ export interface LoadingState {
   mlm: boolean;
   clients: boolean;
   stock: boolean;
+  cashout: boolean;  // NOUVEAU
 }
 
 export interface ErrorState {
@@ -251,6 +284,7 @@ export interface ErrorState {
   mlm: string | null;
   clients: string | null;
   stock: string | null;
+  cashout: string | null;  // NOUVEAU
 }
 
 // ── Thème ────────────────────────────────────────────────────────

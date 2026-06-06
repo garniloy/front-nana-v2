@@ -17,8 +17,8 @@ import type {
 // CONFIG
 // ─────────────────────────────────────────────────────────────────
 
-const API_BASE = 'https://backend-nana-v2-production.up.railway.app/api';
-//const API_BASE = 'http://localhost:3000/api';
+//const API_BASE = 'https://backend-nana-v2-production.up.railway.app/api';
+const API_BASE = 'http://localhost:3000/api';
 
 // ─────────────────────────────────────────────────────────────────
 // HELPERS
@@ -45,7 +45,7 @@ export function getThemeFromStorage(): ThemeMode {
     const raw = localStorage.getItem('dashboard_theme');
     if (raw === 'dark' || raw === 'light') return raw;
   } catch (_) { /* ignore */ }
-  return 'light'; // défaut : light
+  return 'light';
 }
 
 async function apiPost<T>(
@@ -65,7 +65,7 @@ async function apiPost<T>(
     payment_mode: filters.payment_mode,
     client_kind: filters.clientKind,
     client: filters.client,
-    issue: filters.issue ?? 'valid', // toujours envoyé, défaut 'valid'
+    issue: filters.issue ?? 'valid',
     ...extra,
   };
 
@@ -107,6 +107,7 @@ const INITIAL_STATE: DashboardState = {
   mlm: null,
   clients: null,
   stock: null,
+  cashout: null,   // NOUVEAU
 };
 
 const INITIAL_LOADING: LoadingState = {
@@ -117,6 +118,7 @@ const INITIAL_LOADING: LoadingState = {
   mlm: false,
   clients: false,
   stock: false,
+  cashout: false,  // NOUVEAU
 };
 
 const INITIAL_ERRORS: ErrorState = {
@@ -127,11 +129,12 @@ const INITIAL_ERRORS: ErrorState = {
   mlm: null,
   clients: null,
   stock: null,
+  cashout: null,   // NOUVEAU
 };
 
 const DEFAULT_FILTERS: DashboardFilters = {
   period: 'month',
-  issue: 'valid', // défaut : uniquement les ventes validées
+  issue: 'valid',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -261,7 +264,6 @@ export function useDashboard() {
         apiPost<DashboardState['topSellers']>('sales/top-sellers', user, filters),
         apiPost<DashboardState['topProducts']>('sales/top-products', user, filters),
         apiPost<DashboardState['topClients']>('sales/top-clients', user, filters),
-        // issue stats ignorent le filtre issue (on veut toujours voir pending+canceled)
         apiPost<DashboardState['issueStats']>('sales/issue-stats', user, { ...filters, issue: undefined }),
       ]);
       setData(prev => ({
@@ -326,10 +328,26 @@ export function useDashboard() {
     }
   }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── NOUVEAU : loadCashout ──────────────────────────────────────
+  const loadCashout = useCallback(async () => {
+    if (!user) return;
+    setLoadingKey('cashout', true);
+    setErrorKey('cashout', null);
+    try {
+      const cashout = await apiPost<DashboardState['cashout']>('cashout', user, filters);
+      setData(prev => ({ ...prev, cashout }));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erreur inconnue (cashout)';
+      setErrorKey('cashout', msg);
+    } finally {
+      setLoadingKey('cashout', false);
+    }
+  }, [user?.id, JSON.stringify(filters)]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadSectionData = useCallback(async (section: DashboardSection) => {
     await loadOverview();
     switch (section) {
-      case 'overview': break;
+      case 'overview':  break;
       case 'financial': await loadFinancial(); break;
       case 'sales':     await loadSales(); break;
       case 'mlm':       await loadMlm(); break;
@@ -338,8 +356,9 @@ export function useDashboard() {
       case 'sellers':   await loadFinancial(); break;
       case 'offices':   await loadFinancial(); break;
       case 'products':  await loadSales(); break;
+      case 'charges':   await loadCashout(); break;  // NOUVEAU
     }
-  }, [loadOverview, loadFinancial, loadSales, loadMlm, loadClients, loadStock]);
+  }, [loadOverview, loadFinancial, loadSales, loadMlm, loadClients, loadStock, loadCashout]);
 
   const navigateTo = useCallback((section: DashboardSection) => {
     setActiveSection(section);
@@ -347,11 +366,6 @@ export function useDashboard() {
   }, [loadSectionData]);
 
   // ── Téléchargement PDF ────────────────────────────────────────
-  /**
-   * Télécharge un rapport PDF via le backend.
-   * type: 'seller' | 'office'
-   * targetId: ID du seller ou nom du bureau
-   */
   const downloadReport = useCallback(async (
     type: 'seller' | 'office',
     targetId: string,

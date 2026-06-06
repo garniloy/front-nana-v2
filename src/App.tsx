@@ -12,6 +12,8 @@ import SuperUser from './app/view/SuperUser';
 import Forms from './app/view/Formulaire';
 import Dashboard from './view/Dashboard';
 import { useNavigate } from 'react-router-dom';
+import ChargeCashout from './app/components/Charge-cashout';
+import ProdServManager from './app/components/ProdServManager';
 
 
 function App() {
@@ -29,10 +31,11 @@ function App() {
       <Route path='/app' element={<AppDash />}> 
         <Route index element={<Forms />} />
         <Route path="formulaires" element={<Forms />} />
-        <Route path="visualiseur-de-donnee" element={<DataVisualizer />} />
+        <Route path="visualiseur-de-donnee" element={<ProdServManager></ProdServManager>} />
         <Route path="parametres" element={<Settings />} />
         <Route path="abonnement" element={<Subscription />} />
         <Route path="super-utilisateur" element={<SuperUser />} />
+        <Route path="charge-cashout" element={<ChargeCashout />} />
       </Route>
       <Route path='/dashboard' element={<Dashboard />} />
       <Route path='*' element={<NotFound />} />

@@ -8,7 +8,7 @@ import {
 import { useDashboard } from '../hooks/useDashboard';
 import type {
   DashboardSection, SellerFinancial, TopProduct,
-  ClientFinancial, StockActuel, ThemeMode,
+  ClientFinancial, StockActuel, ThemeMode, CashoutEntry,
 } from '../types/dashboard';
 
 // ─────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ const fmtPct = (n: number | null) => {
 };
 
 // ─────────────────────────────────────────────────────────────────
-// THÈME — variables CSS selon mode
+// THÈME
 // ─────────────────────────────────────────────────────────────────
 
 const THEME_VARS: Record<ThemeMode, Record<string, string>> = {
@@ -96,6 +96,10 @@ const CHART_COLORS_LIGHT = {
 const PIE_COLORS_DARK  = ['#0d65f2','#0df261','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
 const PIE_COLORS_LIGHT = ['#1a56db','#059669','#d97706','#dc2626','#7c3aed','#0891b2'];
 
+// Palette de couleurs pour les lignes de charges par motif
+const MOTIF_COLORS_DARK  = ['#f59e0b','#ef4444','#8b5cf6','#06b6d4','#0df261','#0d65f2','#f97316','#ec4899'];
+const MOTIF_COLORS_LIGHT = ['#d97706','#dc2626','#7c3aed','#0891b2','#059669','#1a56db','#ea580c','#db2777'];
+
 // ─────────────────────────────────────────────────────────────────
 // SOUS-COMPOSANTS RÉUTILISABLES
 // ─────────────────────────────────────────────────────────────────
@@ -111,7 +115,6 @@ const ErrorBanner = ({ message }: { message: string }) => (
   </div>
 );
 
-// ── KPI Card ───────────────────────────────────────────────────────MTN money
 interface KpiCardProps {
   label: string;
   value: string;
@@ -141,7 +144,6 @@ const KpiCard = ({ label, value, variation, icon, accentVar = '--brand' }: KpiCa
   );
 };
 
-// ── Section Card ───────────────────────────────────────────────────
 const SectionCard = ({ title, children, className = '' }: {
   title: string; children: React.ReactNode; className?: string;
 }) => (
@@ -151,7 +153,6 @@ const SectionCard = ({ title, children, className = '' }: {
   </div>
 );
 
-// ── Custom Tooltip Recharts ────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label, currency = true }: {
   active?: boolean;
   payload?: { name: string; value: number; color: string }[];
@@ -171,8 +172,6 @@ const CustomTooltip = ({ active, payload, label, currency = true }: {
   );
 };
 
-// ── Rank Table — correctif colonnes ────────────────────────────────
-// Le #N est maintenant une vraie première colonne dans headers+rows
 interface RankTableProps {
   headers: string[];
   rows: (string | number | React.ReactNode)[][];
@@ -222,23 +221,23 @@ const OverviewSection = ({ data, loading, error }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
   error: string | null;
-  
 }) => {
-  console.log()
   const ov = data.overview;
   if (error) return <ErrorBanner message={error} />;
   if (loading.overview || !ov) return <div className="section-loading"><Spinner /></div>;
 
   const kpis = [
-    { label: "Chiffre d'Affaires",  value: fmt(ov.ca.value),           variation: ov.ca.variation,           icon: '💰', accentVar: '--brand'   },
-    { label: 'Bénéfice Net',        value: fmt(ov.benefice_net.value),  variation: ov.benefice_net.variation, icon: '📈', accentVar: '--accent'  },
-    { label: 'Commission Totale',   value: fmt(ov.commission.value),    variation: ov.commission.variation,   icon: '🤝', accentVar: '--warning' },
-    { label: 'Nombre de Ventes',    value: fmtNum(ov.nb_ventes.value),  variation: ov.nb_ventes.variation,    icon: '🛒', accentVar: '--cyan'    },
-    { label: 'PV Total',            value: fmtNum(ov.pv.value) + ' PV',variation: ov.pv.variation,           icon: '⭐', accentVar: '--purple'  },
+    { label: "Chiffre d'Affaires",      value: fmt(ov.ca.value),                        variation: ov.ca.variation,                        icon: '💰', accentVar: '--brand'   },
+    { label: 'Bénéfice Brut',           value: fmt(ov.benefice_net.value),              variation: ov.benefice_net.variation,              icon: '📈', accentVar: '--accent'  },
+    { label: 'Total Charges',           value: fmt(ov.total_charges?.value ?? 0),       variation: null,                                   icon: '📉', accentVar: '--danger'  },
+    { label: 'Bénéfice Net (- charges)',value: fmt(ov.benefice_apres_charges?.value ?? 0), variation: null,                               icon: '✅', accentVar: '--purple'  },
+    { label: 'Commission Totale',       value: fmt(ov.commission.value),                variation: ov.commission.variation,                icon: '🤝', accentVar: '--warning' },
+    { label: 'Nombre de Ventes',        value: fmtNum(ov.nb_ventes.value),              variation: ov.nb_ventes.variation,                 icon: '🛒', accentVar: '--cyan'    },
+    { label: 'PV Total',                value: fmtNum(ov.pv.value) + ' PV',            variation: ov.pv.variation,                        icon: '⭐', accentVar: '--brand'   },
   ];
 
   return (
-    <div className="overview-grid">
+    <div className="overview-grid overview-grid--7">
       {kpis.map((k, i) => <KpiCard key={i} {...k} />)}
     </div>
   );
@@ -261,7 +260,7 @@ const FinancialSection = ({ data, loading, error, theme }: {
 
   return (
     <div className="section-col">
-      <SectionCard title="Évolution CA · Bénéfice Net">
+      <SectionCard title="Évolution CA · Bénéfice Brut">
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={tl}>
             <defs>
@@ -279,8 +278,8 @@ const FinancialSection = ({ data, loading, error, theme }: {
             <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={v => fmtNum(v)} />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
-            <Area type="monotone" dataKey="ca"          name="CA"           stroke={C.brand}  fill="url(#gCA)"  strokeWidth={2} dot={false} animationDuration={800} />
-            <Area type="monotone" dataKey="benefice_net" name="Bénéfice Net" stroke={C.accent} fill="url(#gBen)" strokeWidth={2} dot={false} animationDuration={1000} />
+            <Area type="monotone" dataKey="ca"           name="CA"           stroke={C.brand}  fill="url(#gCA)"  strokeWidth={2} dot={false} animationDuration={800} />
+            <Area type="monotone" dataKey="benefice_net" name="Bénéfice Brut" stroke={C.accent} fill="url(#gBen)" strokeWidth={2} dot={false} animationDuration={1000} />
           </AreaChart>
         </ResponsiveContainer>
       </SectionCard>
@@ -293,8 +292,8 @@ const FinancialSection = ({ data, loading, error, theme }: {
               <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={v => fmtNum(v)} />
               <YAxis type="category" dataKey="office" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} width={80} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="ca"          name="CA"           fill={C.brand}  radius={[0,6,6,0]} animationDuration={800} />
-              <Bar dataKey="benefice_net" name="Bénéfice Net" fill={C.accent} radius={[0,6,6,0]} animationDuration={1000} />
+              <Bar dataKey="ca"           name="CA"           fill={C.brand}  radius={[0,6,6,0]} animationDuration={800} />
+              <Bar dataKey="benefice_net" name="Bénéfice Brut" fill={C.accent} radius={[0,6,6,0]} animationDuration={1000} />
             </BarChart>
           </ResponsiveContainer>
         </SectionCard>
@@ -330,27 +329,11 @@ const SalesSection = ({ data, loading, error, theme }: {
 
   return (
     <div className="section-col">
-      {/* ── Métriques pending / canceled ── */}
       {issue && (
         <div className="overview-grid overview-grid--3">
-          <KpiCard
-            label="Ventes en attente"
-            value={fmtNum(issue.pending_count)}
-            icon="⏳"
-            accentVar="--warning"
-          />
-          <KpiCard
-            label="Montant en attente"
-            value={fmt(issue.pending_amount)}
-            icon="💸"
-            accentVar="--warning"
-          />
-          <KpiCard
-            label="Taux d'annulation"
-            value={issue.canceled_count + ' (' + issue.canceled_rate + '%)'}
-            icon="❌"
-            accentVar="--danger"
-          />
+          <KpiCard label="Ventes en attente"  value={fmtNum(issue.pending_count)}  icon="⏳" accentVar="--warning" />
+          <KpiCard label="Montant en attente" value={fmt(issue.pending_amount)}    icon="💸" accentVar="--warning" />
+          <KpiCard label="Taux d'annulation"  value={issue.canceled_count + ' (' + issue.canceled_rate + '%)'}  icon="❌" accentVar="--danger" />
         </div>
       )}
 
@@ -392,7 +375,7 @@ const SalesSection = ({ data, loading, error, theme }: {
       <div className="section-row-2">
         <SectionCard title="Top Sellers">
           <RankTable
-            headers={['Nom', 'CA', 'Bénéfice Net', 'PV']}
+            headers={['Nom', 'CA', 'Bénéfice Brut', 'PV']}
             rows={topSellers.slice(0, 8).map(s => [s.name || s.seller, fmt(s.ca), fmt(s.benefice_net), fmtNum(s.pv)])}
           />
         </SectionCard>
@@ -530,29 +513,17 @@ const StockSection = ({ data, loading, error, theme }: {
   if (!stock) return null;
 
   const C = theme === 'dark' ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
-  //const varColor = stock.variation >= 0 ? C.accent : C.danger;
 
   return (
     <div className="section-col">
-      {/* ── Valeurs stock en temps réel ── */}
       <div className="overview-grid overview-grid--2">
-        <KpiCard
-          label="Valeur Stock (Prix Stockiste)"
-          value={fmt(stock.valeur_stock_stockiste)}
-          icon="🏭"
-          accentVar="--brand"
-        />
-        <KpiCard
-          label="Valeur Stock (Prix Distributeur)"
-          value={fmt(stock.valeur_stock_distributeur)}
-          icon="🤝"
-          accentVar="--purple"
-        />
+        <KpiCard label="Valeur Stock (Prix Stockiste)"     value={fmt(stock.valeur_stock_stockiste)}    icon="🏭" accentVar="--brand"  />
+        <KpiCard label="Valeur Stock (Prix Distributeur)"  value={fmt(stock.valeur_stock_distributeur)} icon="🤝" accentVar="--purple" />
       </div>
 
       <div className="overview-grid overview-grid--3">
-        <KpiCard label="Total Entrées"   value={fmtNum(stock.total_in)  + ' u.'} icon="📦" accentVar="--accent" />
-        <KpiCard label="Total Sorties"   value={fmtNum(stock.total_out) + ' u.'} icon="📤" accentVar="--danger" />
+        <KpiCard label="Total Entrées" value={fmtNum(stock.total_in)  + ' u.'} icon="📦" accentVar="--accent" />
+        <KpiCard label="Total Sorties" value={fmtNum(stock.total_out) + ' u.'} icon="📤" accentVar="--danger" />
         <KpiCard
           label="Variation Nette"
           value={(stock.variation >= 0 ? '+' : '') + fmtNum(stock.variation) + ' u.'}
@@ -601,6 +572,199 @@ const StockSection = ({ data, loading, error, theme }: {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+    </div>
+  );
+};
+
+// ── Charges (Cashout) ─────────────────────────────────────────────  NOUVEAU
+const ChargesSection = ({ data, loading, error, theme }: {
+  data: ReturnType<typeof useDashboard>['data'];
+  loading: ReturnType<typeof useDashboard>['loading'];
+  error: string | null;
+  theme: ThemeMode;
+}) => {
+  if (error) return <ErrorBanner message={error} />;
+  if (loading.cashout) return <div className="section-loading"><Spinner /></div>;
+
+  const cashout = data.cashout;
+  if (!cashout) return null;
+
+  const C           = theme === 'dark' ? CHART_COLORS_DARK  : CHART_COLORS_LIGHT;
+  const MOTIF_COLS  = theme === 'dark' ? MOTIF_COLORS_DARK  : MOTIF_COLORS_LIGHT;
+  //const PIE_COLORS  = theme === 'dark' ? PIE_COLORS_DARK    : PIE_COLORS_LIGHT;
+
+  // Données pour le pie chart des charges par motif
+  const pieData = cashout.by_motif.map(m => ({ name: m.motif, value: m.total }));
+
+  return (
+    <div className="section-col">
+      {/* ── KPIs charges ── */}
+      <div className="overview-grid overview-grid--3">
+        <KpiCard
+          label="Total Charges"
+          value={fmt(cashout.total_charges)}
+          icon="📉"
+          accentVar="--danger"
+        />
+        <KpiCard
+          label="Nombre d'entrées"
+          value={fmtNum(cashout.nb_charges)}
+          icon="📋"
+          accentVar="--warning"
+        />
+        <KpiCard
+          label="Charge moyenne / entrée"
+          value={cashout.nb_charges > 0 ? fmt(cashout.total_charges / cashout.nb_charges) : '—'}
+          icon="⚖️"
+          accentVar="--purple"
+        />
+      </div>
+
+      {/* ── Évolution globale des charges ── */}
+      <SectionCard title="Évolution Globale des Charges">
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={cashout.timeline}>
+            <defs>
+              <linearGradient id="gCharges" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={C.danger} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={C.danger} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--grid-stroke)" />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
+            <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={v => fmtNum(v)} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="total"
+              name="Charges totales"
+              stroke={C.danger}
+              fill="url(#gCharges)"
+              strokeWidth={2}
+              dot={false}
+              animationDuration={800}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </SectionCard>
+
+      {/* ── Évolution par motif + Répartition pie ── */}
+      <div className="section-row-2">
+        <SectionCard title="Évolution par Motif de Charge">
+          {cashout.timeline_by_motif.length > 0 && cashout.motifs.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={cashout.timeline_by_motif}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--grid-stroke)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} tickFormatter={v => fmtNum(v)} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
+                {cashout.motifs.map((motif, i) => (
+                  <Line
+                    key={motif}
+                    type="monotone"
+                    dataKey={motif}
+                    name={motif}
+                    stroke={MOTIF_COLS[i % MOTIF_COLS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    animationDuration={800 + i * 150}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="charges-empty">Aucune donnée pour la période</div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Répartition par Motif">
+          {pieData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%" cy="50%"
+                    outerRadius={75} innerRadius={42}
+                    paddingAngle={4}
+                    animationDuration={800}
+                  >
+                    {pieData.map((_, i) => (
+                      <Cell key={i} fill={MOTIF_COLS[i % MOTIF_COLS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => fmt(Number(v ?? 0))} />
+                  <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Récap par motif sous le pie */}
+              <div className="charges-motif-list">
+                {cashout.by_motif.map((m, i) => (
+                  <div key={m.motif} className="charges-motif-row">
+                    <span
+                      className="charges-motif-dot"
+                      style={{ background: MOTIF_COLS[i % MOTIF_COLS.length] }}
+                    />
+                    <span className="charges-motif-name">{m.motif}</span>
+                    <span className="charges-motif-count">{m.count}×</span>
+                    <span className="charges-motif-total">{fmt(m.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="charges-empty">Aucune charge pour la période</div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* ── Liste détaillée ── */}
+      <SectionCard title="Détail des Charges">
+        <div className="rank-table-wrap">
+          <table className="rank-table">
+            <thead>
+              <tr>
+                <th className="rank-table__rank-th">#</th>
+                <th>Date</th>
+                <th>Motif</th>
+                <th>Bureau</th>
+                <th>Manager</th>
+                <th>Montant</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(cashout.list as CashoutEntry[]).map((c, i) => (
+                <tr key={c.id} style={{ '--rank-delay': `${i * 30}ms` } as React.CSSProperties}>
+                  <td className="rank-table__rank">#{i + 1}</td>
+                  <td>{new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
+                  <td><strong>{c.motif || '—'}</strong></td>
+                  <td>{c.office || '—'}</td>
+                  <td>{c.manager || '—'}</td>
+                  <td style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                    {fmt(c.montant)}
+                  </td>
+                  <td>
+                    <span className={`stock-badge ${c.is_paid ? 'stock-badge--ok' : 'stock-badge--low'}`}>
+                      {c.is_paid ? 'Payé' : 'En attente'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {cashout.list.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1.5rem' }}>
+                    Aucune charge enregistrée pour la période
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -717,7 +881,6 @@ const FilterBar = ({
         </select>
       </div>
 
-      {/* Filtre issue — défaut 'valid' */}
       <div className="filter-bar__group">
         <span className="filter-bar__label">Statut vente</span>
         <select className="filter-bar__select" value={filters.issue ?? 'valid'}
@@ -733,11 +896,11 @@ const FilterBar = ({
   );
 };
 
-// ───────────────────────────────────────────────────────────────── canceled
+// ─────────────────────────────────────────────────────────────────
 // NAV
 // ─────────────────────────────────────────────────────────────────
 
-const NAV_ITEMS: { id: DashboardSection; label: string; icon: string }[] = [
+const NAV_ITEMS: { id: DashboardSection; label: string; icon: string; ownerOnly?: boolean }[] = [
   { id: 'overview',  label: 'Vue Globale', icon: '◉' },
   { id: 'financial', label: 'Financier',   icon: '📊' },
   { id: 'sales',     label: 'Ventes',      icon: '🛒' },
@@ -746,6 +909,7 @@ const NAV_ITEMS: { id: DashboardSection; label: string; icon: string }[] = [
   { id: 'sellers',   label: 'Sellers',     icon: '🏆' },
   { id: 'offices',   label: 'Bureaux',     icon: '🏢' },
   { id: 'stock',     label: 'Stock',       icon: '📦' },
+  { id: 'charges',   label: 'Charges',     icon: '📉' },  // NOUVEAU
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -789,6 +953,8 @@ const Dashboard: React.FC = () => {
         return <MlmSection {...commonProps} error={errors.mlm} />;
       case 'clients':
         return <ClientsSection {...commonProps} error={errors.clients} />;
+      case 'charges':
+        return <ChargesSection {...commonProps} error={errors.cashout} />;  // NOUVEAU
 
       case 'sellers':
         return (
@@ -805,16 +971,16 @@ const Dashboard: React.FC = () => {
                       <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={v => fmtNum(v)} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend />
-                      <Bar dataKey="ca"          name="CA"           fill={C.brand}   radius={[6,6,0,0]} animationDuration={800} />
-                      <Bar dataKey="benefice_net" name="Bénéfice Net" fill={C.accent}  radius={[6,6,0,0]} animationDuration={1000} />
-                      <Bar dataKey="commission"  name="Commission"   fill={C.warning} radius={[6,6,0,0]} animationDuration={1200} />
+                      <Bar dataKey="ca"           name="CA"           fill={C.brand}   radius={[6,6,0,0]} animationDuration={800} />
+                      <Bar dataKey="benefice_net" name="Bénéfice Brut" fill={C.accent}  radius={[6,6,0,0]} animationDuration={1000} />
+                      <Bar dataKey="commission"   name="Commission"   fill={C.warning} radius={[6,6,0,0]} animationDuration={1200} />
                     </BarChart>
                   </ResponsiveContainer>
                 </SectionCard>
 
                 <SectionCard title="Classement Complet">
                   <RankTable
-                    headers={['Nom', 'CA', 'Bénéfice Net', 'Commission', 'PV']}
+                    headers={['Nom', 'CA', 'Bénéfice Brut', 'Commission', 'PV']}
                     rows={data.financialBySeller.map(s => [
                       s.name || s.seller,
                       fmt(s.ca),
@@ -849,15 +1015,15 @@ const Dashboard: React.FC = () => {
                       <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={v => fmtNum(v)} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend />
-                      <Bar dataKey="ca"          name="CA"           fill={C.brand}  radius={[6,6,0,0]} animationDuration={800} />
-                      <Bar dataKey="benefice_net" name="Bénéfice Net" fill={C.accent} radius={[6,6,0,0]} animationDuration={1000} />
+                      <Bar dataKey="ca"           name="CA"           fill={C.brand}  radius={[6,6,0,0]} animationDuration={800} />
+                      <Bar dataKey="benefice_net" name="Bénéfice Brut" fill={C.accent} radius={[6,6,0,0]} animationDuration={1000} />
                     </BarChart>
                   </ResponsiveContainer>
                 </SectionCard>
 
                 <SectionCard title="Tableau Bureaux">
                   <RankTable
-                    headers={['Bureau', 'CA', 'Bénéfice Net']}
+                    headers={['Bureau', 'CA', 'Bénéfice Brut']}
                     rows={data.financialByOffice.map(o => [o.office, fmt(o.ca), fmt(o.benefice_net)])}
                     onDownload={(i) => {
                       const o = data.financialByOffice![i];
@@ -867,7 +1033,6 @@ const Dashboard: React.FC = () => {
                   />
                 </SectionCard>
 
-                {/* Bouton de téléchargement global pour le manager */}
                 {!isOwner && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                     <button
@@ -890,16 +1055,12 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Injecter les variables CSS du thème
   const cssVars = THEME_VARS[theme];
 
   return (
     <>
       <style>{getDashboardCSS(theme)}</style>
-      <div
-        className="dash-root"
-        style={cssVars as React.CSSProperties}
-      >
+      <div className="dash-root" style={cssVars as React.CSSProperties}>
         {/* ── SIDEBAR ── */}
         <aside className="dash-sidebar">
           <div className="dash-sidebar__brand">
@@ -919,7 +1080,7 @@ const Dashboard: React.FC = () => {
             {NAV_ITEMS.map(item => (
               <button
                 key={item.id}
-                className={`dash-nav-item ${activeSection === item.id ? 'active' : ''}`}
+                className={`dash-nav-item ${activeSection === item.id ? 'active' : ''} ${item.id === 'charges' ? 'dash-nav-item--charges' : ''}`}
                 onClick={() => navigateTo(item.id)}
               >
                 <span className="dash-nav-item__icon">{item.icon}</span>
@@ -933,8 +1094,6 @@ const Dashboard: React.FC = () => {
             <button className="dash-sidebar__refresh" onClick={refresh}>
               ↺ Rafraîchir
             </button>
-
-            {/* Switch thème */}
             <button className="dash-sidebar__theme-btn" onClick={toggleTheme}>
               {theme === 'dark' ? '☀ Mode Clair' : '🌙 Mode Sombre'}
             </button>
@@ -965,7 +1124,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           <div className="dash-overview-strip">
-            <OverviewSection data={data} loading={loading} error={errors.overview}  />
+            <OverviewSection data={data} loading={loading} error={errors.overview} />
           </div>
 
           <div className="dash-content">
@@ -978,7 +1137,7 @@ const Dashboard: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────
-// CSS — génération dynamique selon le thème
+// CSS
 // ─────────────────────────────────────────────────────────────────
 
 function getDashboardCSS(theme: ThemeMode): string {
@@ -1097,6 +1256,17 @@ function getDashboardCSS(theme: ThemeMode): string {
   background: var(--brand-soft);
   color: var(--brand-text);
   font-weight: 600;
+}
+
+/* Charges nav item — teinte danger subtile */
+.dash-nav-item--charges:hover,
+.dash-nav-item--charges.active {
+  background: ${isLight ? 'rgba(220,38,38,0.06)' : 'rgba(239,68,68,0.1)'};
+  color: var(--danger);
+}
+
+.dash-nav-item--charges.active .dash-nav-item__indicator {
+  background: var(--danger);
 }
 
 .dash-nav-item__icon { font-size: 1rem; }
@@ -1300,8 +1470,10 @@ function getDashboardCSS(theme: ThemeMode): string {
 }
 .overview-grid--2 { grid-template-columns: repeat(2, 1fr); }
 .overview-grid--3 { grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 1200px) { .overview-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 800px)  { .overview-grid { grid-template-columns: repeat(2, 1fr); } }
+.overview-grid--7 { grid-template-columns: repeat(7, 1fr); }
+@media (max-width: 1400px) { .overview-grid--7 { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1200px) { .overview-grid { grid-template-columns: repeat(3, 1fr); } .overview-grid--7 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px)  { .overview-grid { grid-template-columns: repeat(2, 1fr); } .overview-grid--7 { grid-template-columns: repeat(2, 1fr); } }
 .kpi-single { max-width: 220px; }
 
 /* ── KPI CARD ── */
@@ -1481,7 +1653,7 @@ function getDashboardCSS(theme: ThemeMode): string {
   text-align: center;
 }
 
-/* ── DOWNLOAD BUTTON in table ── */
+/* ── DOWNLOAD BUTTON ── */
 .rank-table__dl-btn {
   padding: 0.2rem 0.55rem;
   border-radius: 6px;
@@ -1524,6 +1696,63 @@ function getDashboardCSS(theme: ThemeMode): string {
 .stock-badge--ok    { background: ${isLight ? 'rgba(5,150,105,0.1)' : 'rgba(13,242,97,0.12)'}; color: var(--accent); }
 .stock-badge--low   { background: ${isLight ? 'rgba(217,119,6,0.1)' : 'rgba(245,158,11,0.12)'}; color: var(--warning); }
 .stock-badge--empty { background: ${isLight ? 'rgba(220,38,38,0.08)' : 'rgba(239,68,68,0.12)'}; color: var(--danger); }
+
+/* ── CHARGES SECTION ── */
+.charges-motif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.charges-motif-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.charges-motif-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.charges-motif-name {
+  flex: 1;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.charges-motif-count {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-family: 'IBM Plex Mono', monospace;
+  flex-shrink: 0;
+}
+
+.charges-motif-total {
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.charges-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
 
 /* ── SPINNER ── */
 .dash-spinner { display: flex; align-items: center; justify-content: center; padding: 2rem; }
