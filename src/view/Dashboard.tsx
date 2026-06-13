@@ -96,7 +96,6 @@ const CHART_COLORS_LIGHT = {
 const PIE_COLORS_DARK  = ['#0d65f2','#0df261','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
 const PIE_COLORS_LIGHT = ['#1a56db','#059669','#d97706','#dc2626','#7c3aed','#0891b2'];
 
-// Palette de couleurs pour les lignes de charges par motif
 const MOTIF_COLORS_DARK  = ['#f59e0b','#ef4444','#8b5cf6','#06b6d4','#0df261','#0d65f2','#f97316','#ec4899'];
 const MOTIF_COLORS_LIGHT = ['#d97706','#dc2626','#7c3aed','#0891b2','#059669','#1a56db','#ea580c','#db2777'];
 
@@ -216,7 +215,6 @@ const RankTable = ({ headers, rows, onDownload, downloadLabel = 'PDF' }: RankTab
 // SECTIONS
 // ─────────────────────────────────────────────────────────────────
 
-// ── Overview ──────────────────────────────────────────────────────
 const OverviewSection = ({ data, loading, error }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -243,7 +241,6 @@ const OverviewSection = ({ data, loading, error }: {
   );
 };
 
-// ── Financial ─────────────────────────────────────────────────────
 const FinancialSection = ({ data, loading, error, theme }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -309,7 +306,6 @@ const FinancialSection = ({ data, loading, error, theme }: {
   );
 };
 
-// ── Sales ─────────────────────────────────────────────────────────
 const SalesSection = ({ data, loading, error, theme }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -390,7 +386,6 @@ const SalesSection = ({ data, loading, error, theme }: {
   );
 };
 
-// ── MLM ───────────────────────────────────────────────────────────
 const MlmSection = ({ data, loading, error, theme }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -447,7 +442,6 @@ const MlmSection = ({ data, loading, error, theme }: {
   );
 };
 
-// ── Clients ───────────────────────────────────────────────────────
 const ClientsSection = ({ data, loading, error, theme }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -499,7 +493,6 @@ const ClientsSection = ({ data, loading, error, theme }: {
   );
 };
 
-// ── Stock ─────────────────────────────────────────────────────────
 const StockSection = ({ data, loading, error, theme }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -579,8 +572,7 @@ const StockSection = ({ data, loading, error, theme }: {
     </div>
   );
 };
-
-// ── Charges (Cashout) ─────────────────────────────────────────────  NOUVEAU
+// Analytics
 const ChargesSection = ({ data, loading, error, theme }: {
   data: ReturnType<typeof useDashboard>['data'];
   loading: ReturnType<typeof useDashboard>['loading'];
@@ -595,14 +587,11 @@ const ChargesSection = ({ data, loading, error, theme }: {
 
   const C           = theme === 'dark' ? CHART_COLORS_DARK  : CHART_COLORS_LIGHT;
   const MOTIF_COLS  = theme === 'dark' ? MOTIF_COLORS_DARK  : MOTIF_COLORS_LIGHT;
-  //const PIE_COLORS  = theme === 'dark' ? PIE_COLORS_DARK    : PIE_COLORS_LIGHT;
 
-  // Données pour le pie chart des charges par motif
   const pieData = cashout.by_motif.map(m => ({ name: m.motif, value: m.total }));
 
   return (
     <div className="section-col">
-      {/* ── KPIs charges ── */}
       <div className="overview-grid overview-grid--3">
         <KpiCard
           label="Total Charges"
@@ -624,7 +613,6 @@ const ChargesSection = ({ data, loading, error, theme }: {
         />
       </div>
 
-      {/* ── Évolution globale des charges ── */}
       <SectionCard title="Évolution Globale des Charges">
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={cashout.timeline}>
@@ -652,7 +640,6 @@ const ChargesSection = ({ data, loading, error, theme }: {
         </ResponsiveContainer>
       </SectionCard>
 
-      {/* ── Évolution par motif + Répartition pie ── */}
       <div className="section-row-2">
         <SectionCard title="Évolution par Motif de Charge">
           {cashout.timeline_by_motif.length > 0 && cashout.motifs.length > 0 ? (
@@ -704,7 +691,6 @@ const ChargesSection = ({ data, loading, error, theme }: {
                   <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
                 </PieChart>
               </ResponsiveContainer>
-              {/* Récap par motif sous le pie */}
               <div className="charges-motif-list">
                 {cashout.by_motif.map((m, i) => (
                   <div key={m.motif} className="charges-motif-row">
@@ -725,7 +711,6 @@ const ChargesSection = ({ data, loading, error, theme }: {
         </SectionCard>
       </div>
 
-      {/* ── Liste détaillée ── */}
       <SectionCard title="Détail des Charges">
         <div className="rank-table-wrap">
           <table className="rank-table">
@@ -796,102 +781,114 @@ const FilterBar = ({
 }) => {
   const [customStart, setCustomStart] = useState('');
   const [customEnd,   setCustomEnd]   = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
     <div className="filter-bar">
-      <div className="filter-bar__group">
-        <span className="filter-bar__label">Période</span>
-        <div className="filter-bar__periods">
-          {(['today', 'week', 'month'] as const).map(p => (
-            <button
-              key={p}
-              className={`filter-bar__period-btn ${filters.period === p ? 'active' : ''}`}
-              onClick={() => onPeriod(p)}
-            >
-              {p === 'today' ? "Aujourd'hui" : p === 'week' ? 'Semaine' : 'Mois'}
+      {/* Mobile: toggle button */}
+      <button
+        className="filter-bar__mobile-toggle"
+        onClick={() => setFiltersOpen(v => !v)}
+        aria-label="Filtres"
+      >
+        ⚙ Filtres {filtersOpen ? '▲' : '▼'}
+      </button>
+
+      <div className={`filter-bar__inner ${filtersOpen ? 'filter-bar__inner--open' : ''}`}>
+        <div className="filter-bar__group">
+          <span className="filter-bar__label">Période</span>
+          <div className="filter-bar__periods">
+            {(['today', 'week', 'month'] as const).map(p => (
+              <button
+                key={p}
+                className={`filter-bar__period-btn ${filters.period === p ? 'active' : ''}`}
+                onClick={() => onPeriod(p)}
+              >
+                {p === 'today' ? "Auj." : p === 'week' ? 'Sem.' : 'Mois'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="filter-bar__group">
+          <span className="filter-bar__label">Custom</span>
+          <div className="filter-bar__row">
+            <input type="date" className="filter-bar__input" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+            <span className="filter-bar__sep">→</span>
+            <input type="date" className="filter-bar__input" value={customEnd}   onChange={e => setCustomEnd(e.target.value)} />
+            <button className="filter-bar__apply-btn" onClick={() => customStart && customEnd && onCustom(customStart, customEnd)}>
+              OK
             </button>
-          ))}
+          </div>
         </div>
-      </div>
 
-      <div className="filter-bar__group">
-        <span className="filter-bar__label">Custom</span>
-        <div className="filter-bar__row">
-          <input type="date" className="filter-bar__input" value={customStart} onChange={e => setCustomStart(e.target.value)} />
-          <span className="filter-bar__sep">→</span>
-          <input type="date" className="filter-bar__input" value={customEnd}   onChange={e => setCustomEnd(e.target.value)} />
-          <button className="filter-bar__apply-btn" onClick={() => customStart && customEnd && onCustom(customStart, customEnd)}>
-            Appliquer
-          </button>
-        </div>
-      </div>
+        {isOwner && meta?.offices && (
+          <div className="filter-bar__group">
+            <span className="filter-bar__label">Bureau</span>
+            <select className="filter-bar__select" value={filters.offices?.[0] ?? ''}
+              onChange={e => onOffices(e.target.value ? [e.target.value] : [])}>
+              <option value="">Tous</option>
+              {meta.offices.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+            </select>
+          </div>
+        )}
 
-      {isOwner && meta?.offices && (
+        {meta?.sellers && (
+          <div className="filter-bar__group">
+            <span className="filter-bar__label">Seller</span>
+            <select className="filter-bar__select" value={filters.seller ?? ''}
+              onChange={e => onSeller(e.target.value)}>
+              <option value="">Tous</option>
+              {meta.sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {meta?.products && (
+          <div className="filter-bar__group">
+            <span className="filter-bar__label">Produit</span>
+            <select className="filter-bar__select" value={filters.product ?? ''}
+              onChange={e => onProduct(e.target.value)}>
+              <option value="">Tous</option>
+              {meta.products.map(p => <option key={p.nom} value={p.nom}>{p.nom}</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="filter-bar__group">
-          <span className="filter-bar__label">Bureau</span>
-          <select className="filter-bar__select" value={filters.offices?.[0] ?? ''}
-            onChange={e => onOffices(e.target.value ? [e.target.value] : [])}>
-            <option value="">Tous les bureaux</option>
-            {meta.offices.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-          </select>
-        </div>
-      )}
-
-      {meta?.sellers && (
-        <div className="filter-bar__group">
-          <span className="filter-bar__label">Seller</span>
-          <select className="filter-bar__select" value={filters.seller ?? ''}
-            onChange={e => onSeller(e.target.value)}>
+          <span className="filter-bar__label">Paiement</span>
+          <select className="filter-bar__select" value={filters.payment_mode ?? ''}
+            onChange={e => onPayment(e.target.value)}>
             <option value="">Tous</option>
-            {meta.sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <option value="Cash">Cash</option>
+            <option value="MTN Money">MTN Money</option>
+            <option value="Orange Money">Orange Money</option>
+            <option value="attente_paiement">Payé par Crédit</option>
           </select>
         </div>
-      )}
 
-      {meta?.products && (
         <div className="filter-bar__group">
-          <span className="filter-bar__label">Produit</span>
-          <select className="filter-bar__select" value={filters.product ?? ''}
-            onChange={e => onProduct(e.target.value)}>
+          <span className="filter-bar__label">Type client</span>
+          <select className="filter-bar__select" value={filters.clientKind ?? ''}
+            onChange={e => onClientKind(e.target.value)}>
             <option value="">Tous</option>
-            {meta.products.map(p => <option key={p.nom} value={p.nom}>{p.nom}</option>)}
+            <option value="distributor">Distributeur</option>
+            <option value="client">Client Final</option>
           </select>
         </div>
-      )}
 
-      <div className="filter-bar__group">
-        <span className="filter-bar__label">Paiement</span>
-        <select className="filter-bar__select" value={filters.payment_mode ?? ''}
-          onChange={e => onPayment(e.target.value)}>
-          <option value="">Tous</option>
-          <option value="Cash">Cash</option>
-          <option value="MTN Money">MTN Money</option>
-          <option value="Orange Money">Orange Money</option>
-          <option value="attente_paiement">Payé par Crédit</option>
-        </select>
+        <div className="filter-bar__group">
+          <span className="filter-bar__label">Statut vente</span>
+          <select className="filter-bar__select" value={filters.issue ?? 'valid'}
+            onChange={e => onIssue(e.target.value as 'valid' | 'pending' | 'canceled')}>
+            <option value="valid">Validées</option>
+            <option value="pending">En attente</option>
+            <option value="canceled">Annulées</option>
+          </select>
+        </div>
+
+        <button className="filter-bar__reset-btn" onClick={onReset}>↺ Reset</button>
       </div>
-
-      <div className="filter-bar__group">
-        <span className="filter-bar__label">Type client</span>
-        <select className="filter-bar__select" value={filters.clientKind ?? ''}
-          onChange={e => onClientKind(e.target.value)}>
-          <option value="">Tous</option>
-          <option value="distributor">Distributeur</option>
-          <option value="client">Client Final</option>
-        </select>
-      </div>
-
-      <div className="filter-bar__group">
-        <span className="filter-bar__label">Statut vente</span>
-        <select className="filter-bar__select" value={filters.issue ?? 'valid'}
-          onChange={e => onIssue(e.target.value as 'valid' | 'pending' | 'canceled')}>
-          <option value="valid">Validées</option>
-          <option value="pending">En attente</option>
-          <option value="canceled">Annulées</option>
-        </select>
-      </div>
-
-      <button className="filter-bar__reset-btn" onClick={onReset}>↺ Reset</button>
     </div>
   );
 };
@@ -909,7 +906,7 @@ const NAV_ITEMS: { id: DashboardSection; label: string; icon: string; ownerOnly?
   { id: 'sellers',   label: 'Sellers',     icon: '🏆' },
   { id: 'offices',   label: 'Bureaux',     icon: '🏢' },
   { id: 'stock',     label: 'Stock',       icon: '📦' },
-  { id: 'charges',   label: 'Charges',     icon: '📉' },  // NOUVEAU
+  { id: 'charges',   label: 'Charges',     icon: '📉' },
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -925,6 +922,11 @@ const Dashboard: React.FC = () => {
 
   const isOwner = user?.owner === true || user?.office === '*';
 
+  // ── Sidebar collapse state ──
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // ── Mobile drawer state ──
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   if (!user) {
     return (
       <div className="dash-no-user">
@@ -938,6 +940,11 @@ const Dashboard: React.FC = () => {
   }
 
   const C = theme === 'dark' ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
+
+  const handleNavItem = (id: DashboardSection) => {
+    navigateTo(id);
+    setMobileNavOpen(false); // close drawer on mobile after selection
+  };
 
   const renderSection = () => {
     const commonProps = { data, loading, theme };
@@ -954,7 +961,7 @@ const Dashboard: React.FC = () => {
       case 'clients':
         return <ClientsSection {...commonProps} error={errors.clients} />;
       case 'charges':
-        return <ChargesSection {...commonProps} error={errors.cashout} />;  // NOUVEAU
+        return <ChargesSection {...commonProps} error={errors.cashout} />;
 
       case 'sellers':
         return (
@@ -1060,48 +1067,129 @@ const Dashboard: React.FC = () => {
   return (
     <>
       <style>{getDashboardCSS(theme)}</style>
-      <div className="dash-root" style={cssVars as React.CSSProperties}>
+      <div
+        className={`dash-root ${sidebarCollapsed ? 'dash-root--collapsed' : ''} ${mobileNavOpen ? 'dash-root--nav-open' : ''}`}
+        style={cssVars as React.CSSProperties}
+      >
+        {/* ── MOBILE OVERLAY ── */}
+        {mobileNavOpen && (
+          <div
+            className="dash-mobile-overlay"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+
         {/* ── SIDEBAR ── */}
-        <aside className="dash-sidebar">
+        <aside className={`dash-sidebar ${sidebarCollapsed ? 'dash-sidebar--collapsed' : ''} ${mobileNavOpen ? 'dash-sidebar--mobile-open' : ''}`}>
           <div className="dash-sidebar__brand">
-            <div className="dash-sidebar__logo">◈</div>
-            <div>
-              <div className="dash-sidebar__app-name">Analytics</div>
-              <div className="dash-sidebar__user-name">{user.name}</div>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="dash-sidebar__logo" onClick={() => window.history.back()}
+              >◈</div>
+            )}
+            {!sidebarCollapsed && (
+              <div>
+                <div className="dash-sidebar__app-name">Analytics</div>
+                <div className="dash-sidebar__user-name">{user.name}</div>
+              </div>
+            )}
+            {/* Collapse toggle button */}
+            <button
+              className="dash-sidebar__collapse-btn"
+              onClick={() => setSidebarCollapsed(v => !v)}
+              aria-label={sidebarCollapsed ? 'Déployer le menu' : 'Réduire le menu'}
+              title={sidebarCollapsed ? 'Déployer' : 'Réduire'}
+            >
+              {sidebarCollapsed ? '›' : '‹'}
+            </button>
           </div>
 
-          <div className="dash-sidebar__role-badge">
-            {isOwner ? '👑 Owner' : '🏢 Manager'}
-            {!isOwner && <span className="dash-sidebar__office">{user.office}</span>}
-          </div>
+          {!sidebarCollapsed && (
+            <div className="dash-sidebar__role-badge">
+              {isOwner ? '👑 Owner' : '🏢 Manager'}
+              {!isOwner && <span className="dash-sidebar__office">{user.office}</span>}
+            </div>
+          )}
 
           <nav className="dash-sidebar__nav">
             {NAV_ITEMS.map(item => (
               <button
                 key={item.id}
                 className={`dash-nav-item ${activeSection === item.id ? 'active' : ''} ${item.id === 'charges' ? 'dash-nav-item--charges' : ''}`}
-                onClick={() => navigateTo(item.id)}
+                onClick={() => handleNavItem(item.id)}
+                title={sidebarCollapsed ? item.label : undefined}
               >
                 <span className="dash-nav-item__icon">{item.icon}</span>
-                <span className="dash-nav-item__label">{item.label}</span>
+                {!sidebarCollapsed && (
+                  <span className="dash-nav-item__label">{item.label}</span>
+                )}
                 {activeSection === item.id && <span className="dash-nav-item__indicator" />}
               </button>
             ))}
           </nav>
 
           <div className="dash-sidebar__bottom">
-            <button className="dash-sidebar__refresh" onClick={refresh}>
-              ↺ Rafraîchir
+            <button
+              className="dash-sidebar__refresh"
+              onClick={refresh}
+              title={sidebarCollapsed ? 'Rafraîchir' : undefined}
+            >
+              {sidebarCollapsed ? '↺' : '↺ Rafraîchir'}
             </button>
-            <button className="dash-sidebar__theme-btn" onClick={toggleTheme}>
-              {theme === 'dark' ? '☀ Mode Clair' : '🌙 Mode Sombre'}
+            <button
+              className="dash-sidebar__theme-btn"
+              onClick={toggleTheme}
+              title={sidebarCollapsed ? (theme === 'dark' ? 'Mode Clair' : 'Mode Sombre') : undefined}
+            >
+              {sidebarCollapsed
+                ? (theme === 'dark' ? '☀' : '🌙')
+                : (theme === 'dark' ? '☀ Mode Clair' : '🌙 Mode Sombre')
+              }
             </button>
           </div>
         </aside>
 
         {/* ── MAIN ── */}
         <main className="dash-main">
+          {/* ── MOBILE TOPBAR ── */}
+          <div className="dash-mobile-topbar">
+            <div className="dash-mobile-topbar__row1">
+              <button
+                className="dash-mobile-topbar__menu-btn"
+                onClick={() => setMobileNavOpen(v => !v)}
+                aria-label="Menu"
+              >
+                ☰
+              </button>
+              <div className="dash-mobile-topbar__title">
+                {NAV_ITEMS.find(n => n.id === activeSection)?.icon}{' '}
+                {NAV_ITEMS.find(n => n.id === activeSection)?.label}
+              </div>
+              <button
+                className="dash-mobile-topbar__theme-btn"
+                onClick={toggleTheme}
+                aria-label="Thème"
+              >
+                {theme === 'dark' ? '☀' : '🌙'}
+              </button>
+            </div>
+            <div className="dash-mobile-topbar__filters">
+              <FilterBar
+                filters={filters}
+                meta={data.meta}
+                isOwner={isOwner}
+                onPeriod={setPeriod}
+                onCustom={setCustomDates}
+                onOffices={offices => updateFilter('offices', offices.length ? offices : undefined)}
+                onSeller={s => updateFilter('seller', s || undefined)}
+                onProduct={p => updateFilter('product', p || undefined)}
+                onPayment={p => updateFilter('payment_mode', p || undefined)}
+                onClientKind={k => updateFilter('clientKind', k || undefined)}
+                onIssue={setIssueFilter}
+                onReset={resetFilters}
+              />
+            </div>
+          </div>
+
           <div className="dash-topbar">
             <div className="dash-topbar__title">
               {NAV_ITEMS.find(n => n.id === activeSection)?.icon}{' '}
@@ -1149,63 +1237,124 @@ function getDashboardCSS(theme: ThemeMode): string {
 /* ── ROOT ── */
 .dash-root {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
   background: var(--bg-root);
   color: var(--text-primary);
   font-family: 'Manrope', sans-serif;
   transition: background 0.3s ease, color 0.3s ease;
+  position: relative;
 }
 
-/* ── SIDEBAR ── */
+/* ── SIDEBAR BASE ── */
 .dash-sidebar {
   width: 220px;
   min-width: 220px;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
-  padding: 1.5rem 0 1rem;
+  padding: 1.25rem 0 1rem;
   overflow-y: auto;
-  transition: background 0.3s ease;
+  overflow-x: hidden;
+  transition: width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1), background 0.3s ease;
+  flex-shrink: 0;
   ${isLight ? 'box-shadow: 2px 0 12px rgba(0,0,0,0.06);' : ''}
+  scrollbar-width: none;
+}
+.dash-sidebar::-webkit-scrollbar { display: none; }
+
+/* ── SIDEBAR COLLAPSED (desktop) ── */
+.dash-sidebar--collapsed {
+  width: 60px;
+  min-width: 60px;
 }
 
+/* ── SIDEBAR BRAND ── */
 .dash-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0 1.25rem 1.5rem;
+  gap: 0.65rem;
+  padding: 0 0.85rem 1.25rem;
   border-bottom: 1px solid var(--border);
+  position: relative;
+  min-height: 52px;
+}
+
+.dash-sidebar--collapsed .dash-sidebar__brand {
+  padding: 0 0 1rem;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .dash-sidebar__logo {
-  font-size: 1.75rem;
+  font-size: 2Srem;
   color: var(--brand);
   line-height: 1;
+  flex-shrink: 0;
+}
+.dash-sidebar__logo:hover {
+  cursor: pointer;
+  opacity: 0.85;
+  transform: scale(1.05);
 }
 
 .dash-sidebar__app-name {
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .dash-sidebar__user-name {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
+/* ── COLLAPSE BUTTON ── */
+.dash-sidebar__collapse-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: ${isLight ? 'var(--bg-root)' : 'rgba(255,255,255,0.06)'};
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+  font-family: monospace;
+}
+.dash-sidebar__collapse-btn:hover {
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  border-color: var(--brand-border);
+}
+.dash-sidebar--collapsed .dash-sidebar__collapse-btn {
+  margin-left: 0;
+}
+
+/* ── ROLE BADGE ── */
 .dash-sidebar__role-badge {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 1rem 1.25rem 0.75rem;
+  gap: 3px;
+  margin: 0.85rem 0.85rem 0.65rem;
   padding: 0.5rem 0.75rem;
   background: var(--brand-soft);
   border: 1px solid var(--brand-border);
@@ -1213,27 +1362,31 @@ function getDashboardCSS(theme: ThemeMode): string {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--brand-text);
+  white-space: normal;
+  word-break: break-word;
 }
 
 .dash-sidebar__office {
   font-size: 0.7rem;
   color: var(--text-secondary);
   font-weight: 400;
+  word-break: break-all;
 }
 
+/* ── NAV ── */
 .dash-sidebar__nav {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.5rem;
   flex: 1;
 }
 
 .dash-nav-item {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
+  gap: 0.55rem;
+  padding: 0.6rem 0.65rem;
   border-radius: 10px;
   background: transparent;
   border: none;
@@ -1245,6 +1398,14 @@ function getDashboardCSS(theme: ThemeMode): string {
   text-align: left;
   position: relative;
   font-family: 'Manrope', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.dash-sidebar--collapsed .dash-nav-item {
+  justify-content: center;
+  padding: 0.65rem;
+  gap: 0;
 }
 
 .dash-nav-item:hover {
@@ -1258,18 +1419,25 @@ function getDashboardCSS(theme: ThemeMode): string {
   font-weight: 600;
 }
 
-/* Charges nav item — teinte danger subtile */
 .dash-nav-item--charges:hover,
 .dash-nav-item--charges.active {
   background: ${isLight ? 'rgba(220,38,38,0.06)' : 'rgba(239,68,68,0.1)'};
   color: var(--danger);
 }
-
 .dash-nav-item--charges.active .dash-nav-item__indicator {
   background: var(--danger);
 }
 
-.dash-nav-item__icon { font-size: 1rem; }
+.dash-nav-item__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.dash-nav-item__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .dash-nav-item__indicator {
   position: absolute;
@@ -1282,27 +1450,38 @@ function getDashboardCSS(theme: ThemeMode): string {
   border-radius: 3px 0 0 3px;
 }
 
+/* ── SIDEBAR BOTTOM ── */
 .dash-sidebar__bottom {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem 0;
+  gap: 0.4rem;
+  padding: 0.65rem 0.5rem 0;
   border-top: 1px solid var(--border);
   margin-top: 0.5rem;
 }
 
 .dash-sidebar__refresh,
 .dash-sidebar__theme-btn {
-  padding: 0.55rem;
+  padding: 0.5rem 0.65rem;
   border-radius: 10px;
   background: ${isLight ? 'var(--bg-root)' : 'rgba(255,255,255,0.04)'};
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   cursor: pointer;
   transition: all 0.18s;
   font-family: 'Manrope', sans-serif;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-sidebar--collapsed .dash-sidebar__refresh,
+.dash-sidebar--collapsed .dash-sidebar__theme-btn {
+  text-align: center;
+  font-size: 1rem;
+  padding: 0.5rem;
 }
 
 .dash-sidebar__refresh:hover,
@@ -1310,6 +1489,65 @@ function getDashboardCSS(theme: ThemeMode): string {
   background: var(--brand-soft);
   color: var(--brand-text);
   border-color: var(--brand-border);
+}
+
+/* ── MOBILE OVERLAY ── */
+.dash-mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+
+/* ── MOBILE TOP BAR ── */
+.dash-mobile-topbar {
+  display: none;
+  flex-direction: column;
+  gap: 0;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 10;
+  ${isLight ? 'box-shadow: 0 2px 8px rgba(0,0,0,0.06);' : ''}
+}
+
+.dash-mobile-topbar__row1 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+}
+
+.dash-mobile-topbar__filters {
+  padding: 0 1rem 0.65rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.55rem;
+}
+
+.dash-mobile-topbar__menu-btn,
+.dash-mobile-topbar__theme-btn {
+  padding: 0.45rem 0.65rem;
+  border-radius: 9px;
+  background: ${isLight ? 'var(--bg-root)' : 'rgba(255,255,255,0.06)'};
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.dash-mobile-topbar__title {
+  flex: 1;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── MAIN ── */
@@ -1321,24 +1559,26 @@ function getDashboardCSS(theme: ThemeMode): string {
   min-width: 0;
 }
 
-/* ── TOPBAR ── */
+/* ── DESKTOP TOPBAR ── */
 .dash-topbar {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  padding: 0.65rem 1.25rem;
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
-  min-height: 60px;
+  min-height: 56px;
   overflow-x: auto;
   flex-shrink: 0;
   ${isLight ? 'box-shadow: 0 2px 8px rgba(0,0,0,0.04);' : ''}
+  scrollbar-width: none;
 }
+.dash-topbar::-webkit-scrollbar { display: none; }
 
 .dash-topbar__title {
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--text-primary);
   white-space: nowrap;
   min-width: max-content;
@@ -1348,20 +1588,35 @@ function getDashboardCSS(theme: ThemeMode): string {
 .filter-bar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: nowrap;
   overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+
+/* Mobile toggle hidden on desktop */
+.filter-bar__mobile-toggle {
+  display: none;
+}
+
+.filter-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: nowrap;
 }
 
 .filter-bar__group {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   flex-shrink: 0;
 }
 
 .filter-bar__label {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -1372,12 +1627,12 @@ function getDashboardCSS(theme: ThemeMode): string {
 .filter-bar__periods { display: flex; gap: 2px; }
 
 .filter-bar__period-btn {
-  padding: 0.3rem 0.65rem;
+  padding: 0.28rem 0.55rem;
   border-radius: 7px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -1392,16 +1647,16 @@ function getDashboardCSS(theme: ThemeMode): string {
   color: var(--brand-text);
 }
 
-.filter-bar__row { display: flex; align-items: center; gap: 0.35rem; }
+.filter-bar__row { display: flex; align-items: center; gap: 0.3rem; }
 
 .filter-bar__input,
 .filter-bar__select {
-  padding: 0.3rem 0.5rem;
+  padding: 0.28rem 0.45rem;
   border-radius: 7px;
   border: 1px solid var(--border);
   background: var(--input-bg);
   color: var(--input-color);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-family: 'Manrope', sans-serif;
   cursor: pointer;
   outline: none;
@@ -1416,15 +1671,15 @@ function getDashboardCSS(theme: ThemeMode): string {
   color: var(--input-color);
 }
 
-.filter-bar__sep { color: var(--text-muted); font-size: 0.75rem; }
+.filter-bar__sep { color: var(--text-muted); font-size: 0.72rem; }
 
 .filter-bar__apply-btn {
-  padding: 0.3rem 0.65rem;
+  padding: 0.28rem 0.55rem;
   border-radius: 7px;
   background: var(--brand);
   border: none;
   color: white;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -1434,12 +1689,12 @@ function getDashboardCSS(theme: ThemeMode): string {
 .filter-bar__apply-btn:hover { opacity: 0.88; }
 
 .filter-bar__reset-btn {
-  padding: 0.3rem 0.65rem;
+  padding: 0.28rem 0.55rem;
   border-radius: 7px;
   background: ${isLight ? 'rgba(220,38,38,0.06)' : 'rgba(239,68,68,0.12)'};
   border: 1px solid ${isLight ? 'rgba(220,38,38,0.2)' : 'rgba(239,68,68,0.25)'};
   color: var(--danger);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -1450,41 +1705,41 @@ function getDashboardCSS(theme: ThemeMode): string {
 .filter-bar__reset-btn:hover { opacity: 0.8; }
 
 /* ── OVERVIEW STRIP ── */
-.dash-overview-strip { padding: 1rem 1.5rem 0.25rem; flex-shrink: 0; }
+.dash-overview-strip {
+  padding: 0.85rem 1.25rem 0.2rem;
+  flex-shrink: 0;
+}
 
 /* ── CONTENT AREA ── */
 .dash-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 1.5rem 2rem;
+  padding: 0.85rem 1.25rem 2rem;
+  -webkit-overflow-scrolling: touch;
 }
-.dash-content::-webkit-scrollbar { width: 5px; }
+.dash-content::-webkit-scrollbar { width: 4px; }
 .dash-content::-webkit-scrollbar-track { background: transparent; }
 .dash-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
 
-/* ── KPI CARDS GRID ── */
+/* ── KPI GRIDS ── */
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 .overview-grid--2 { grid-template-columns: repeat(2, 1fr); }
 .overview-grid--3 { grid-template-columns: repeat(3, 1fr); }
 .overview-grid--7 { grid-template-columns: repeat(7, 1fr); }
-@media (max-width: 1400px) { .overview-grid--7 { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 1200px) { .overview-grid { grid-template-columns: repeat(3, 1fr); } .overview-grid--7 { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 800px)  { .overview-grid { grid-template-columns: repeat(2, 1fr); } .overview-grid--7 { grid-template-columns: repeat(2, 1fr); } }
-.kpi-single { max-width: 220px; }
 
 /* ── KPI CARD ── */
 .kpi-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 1rem 1.1rem 0.9rem;
+  padding: 0.85rem 0.95rem 0.8rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
   transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease, border-color 0.22s;
   cursor: default;
   position: relative;
@@ -1510,12 +1765,12 @@ function getDashboardCSS(theme: ThemeMode): string {
 .kpi-card:hover::before { opacity: 1; }
 
 .kpi-card__header { display: flex; align-items: center; justify-content: space-between; }
-.kpi-card__icon { font-size: 1.1rem; }
+.kpi-card__icon { font-size: 1rem; }
 
 .kpi-card__badge {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  padding: 0.15rem 0.45rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 6px;
 }
 .kpi-card__badge--up   { background: ${isLight ? 'rgba(5,150,105,0.1)' : 'rgba(13,242,97,0.12)'}; color: var(--accent); }
@@ -1523,16 +1778,16 @@ function getDashboardCSS(theme: ThemeMode): string {
 
 .kpi-card__value {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.03em;
   line-height: 1.2;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
 }
 
 .kpi-card__label {
-  font-size: 0.7rem;
+  font-size: 0.67rem;
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -1544,23 +1799,23 @@ function getDashboardCSS(theme: ThemeMode): string {
   background: var(--kpi-accent, var(--brand));
   width: 30%;
   border-radius: 2px;
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
   opacity: 0.6;
   transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1);
 }
 .kpi-card:hover .kpi-card__bar { width: 60%; opacity: 1; }
+.kpi-single { max-width: 220px; }
 
 /* ── SECTION LAYOUT ── */
-.section-col { display: flex; flex-direction: column; gap: 1rem; }
-.section-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 900px) { .section-row-2 { grid-template-columns: 1fr; } }
+.section-col { display: flex; flex-direction: column; gap: 0.85rem; }
+.section-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
 
 /* ── SECTION CARD ── */
 .section-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 1.25rem;
+  padding: 1.1rem;
   animation: fadeUp 0.4s ease both;
   transition: background 0.3s ease;
   ${isLight ? 'box-shadow: 0 1px 4px rgba(0,0,0,0.06);' : ''}
@@ -1573,12 +1828,12 @@ function getDashboardCSS(theme: ThemeMode): string {
 
 .section-card__title {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
 }
 
 /* ── CHART TOOLTIP ── */
@@ -1586,49 +1841,51 @@ function getDashboardCSS(theme: ThemeMode): string {
   background: var(--tooltip-bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.65rem 0.9rem;
-  font-size: 0.78rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.76rem;
   box-shadow: 0 8px 24px rgba(0,0,0,${isLight ? '0.12' : '0.4'});
   color: var(--text-primary);
 }
 .chart-tooltip__label {
   color: var(--text-secondary);
-  font-size: 0.72rem;
-  margin-bottom: 0.35rem;
+  font-size: 0.7rem;
+  margin-bottom: 0.3rem;
   font-weight: 600;
 }
 
 /* ── RANK TABLE ── */
-.rank-table-wrap { overflow-x: auto; border-radius: 10px; }
+.rank-table-wrap { overflow-x: auto; border-radius: 10px; -webkit-overflow-scrolling: touch; }
 
 .rank-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 .rank-table th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.65rem;
   color: var(--text-muted);
   font-weight: 700;
-  font-size: 0.7rem;
+  font-size: 0.67rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border);
   background: ${isLight ? 'var(--bg-root)' : 'transparent'};
+  white-space: nowrap;
 }
 
 .rank-table__rank-th {
-  width: 36px;
+  width: 32px;
   text-align: center !important;
 }
 
 .rank-table td {
-  padding: 0.55rem 0.75rem;
+  padding: 0.5rem 0.65rem;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-subtle);
   transition: background 0.15s;
+  white-space: nowrap;
 }
 
 .rank-table tbody tr {
@@ -1648,19 +1905,19 @@ function getDashboardCSS(theme: ThemeMode): string {
 .rank-table__rank {
   color: var(--text-muted) !important;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.7rem !important;
-  width: 36px;
+  font-size: 0.68rem !important;
+  width: 32px;
   text-align: center;
 }
 
 /* ── DOWNLOAD BUTTON ── */
 .rank-table__dl-btn {
-  padding: 0.2rem 0.55rem;
+  padding: 0.18rem 0.5rem;
   border-radius: 6px;
   background: var(--brand-soft);
   border: 1px solid var(--brand-border);
   color: var(--brand-text);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -1688,10 +1945,11 @@ function getDashboardCSS(theme: ThemeMode): string {
 .stock-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.15rem 0.5rem;
+  padding: 0.13rem 0.45rem;
   border-radius: 6px;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 .stock-badge--ok    { background: ${isLight ? 'rgba(5,150,105,0.1)' : 'rgba(13,242,97,0.12)'}; color: var(--accent); }
 .stock-badge--low   { background: ${isLight ? 'rgba(217,119,6,0.1)' : 'rgba(245,158,11,0.12)'}; color: var(--warning); }
@@ -1706,21 +1964,18 @@ function getDashboardCSS(theme: ThemeMode): string {
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-subtle);
 }
-
 .charges-motif-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
+  gap: 0.45rem;
+  font-size: 0.76rem;
 }
-
 .charges-motif-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-
 .charges-motif-name {
   flex: 1;
   color: var(--text-primary);
@@ -1729,22 +1984,19 @@ function getDashboardCSS(theme: ThemeMode): string {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .charges-motif-count {
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-family: 'IBM Plex Mono', monospace;
   flex-shrink: 0;
 }
-
 .charges-motif-total {
   color: var(--danger);
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   flex-shrink: 0;
   font-family: 'IBM Plex Mono', monospace;
 }
-
 .charges-empty {
   display: flex;
   align-items: center;
@@ -1764,14 +2016,14 @@ function getDashboardCSS(theme: ThemeMode): string {
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.section-loading { display: flex; align-items: center; justify-content: center; min-height: 200px; }
+.section-loading { display: flex; align-items: center; justify-content: center; min-height: 180px; }
 
 /* ── ERROR ── */
 .dash-error {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.85rem 1.1rem;
+  padding: 0.8rem 1rem;
   background: ${isLight ? 'rgba(220,38,38,0.06)' : 'rgba(239,68,68,0.08)'};
   border: 1px solid ${isLight ? 'rgba(220,38,38,0.2)' : 'rgba(239,68,68,0.2)'};
   border-radius: 10px;
@@ -1782,18 +2034,188 @@ function getDashboardCSS(theme: ThemeMode): string {
 .dash-error__icon { font-size: 1rem; }
 
 /* ── NO USER ── */
-.dash-no-user { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg-root); }
+.dash-no-user {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  background: var(--bg-root);
+  padding: 1rem;
+}
 .dash-no-user__card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 2.5rem 3rem;
+  padding: 2rem 2.5rem;
   text-align: center;
   display: flex; flex-direction: column; gap: 0.75rem;
+  max-width: 380px;
+  width: 100%;
 }
 .dash-no-user__icon { font-size: 3rem; }
 .dash-no-user__card h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; color: var(--text-primary); }
 .dash-no-user__card p  { color: var(--text-secondary); font-size: 0.88rem; }
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Large desktop: sidebar collapsed ── */
+.dash-root--collapsed .dash-sidebar { width: 60px; min-width: 60px; }
+
+/* ── Tablet landscape & small desktop (900–1199px) ── */
+@media (max-width: 1199px) {
+  .overview-grid--7 { grid-template-columns: repeat(4, 1fr); }
+  .kpi-card__value  { font-size: 0.95rem; }
+}
+
+/* ── Tablet portrait (600–899px) ── */
+@media (max-width: 899px) {
+  .overview-grid     { grid-template-columns: repeat(3, 1fr); }
+  .overview-grid--7  { grid-template-columns: repeat(3, 1fr); }
+  .overview-grid--2  { grid-template-columns: repeat(2, 1fr); }
+  .overview-grid--3  { grid-template-columns: repeat(3, 1fr); }
+  .section-row-2     { grid-template-columns: 1fr; }
+
+  .dash-topbar       { display: none; }
+  .dash-mobile-topbar { display: flex; }
+  .dash-mobile-overlay { display: block; }
+
+  /* Sidebar becomes a fixed drawer on tablet/mobile */
+  .dash-sidebar {
+    position: fixed;
+    left: 0; top: 0;
+    height: 100dvh;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1), background 0.3s ease;
+    width: 240px !important;
+    min-width: 240px !important;
+    box-shadow: ${isLight ? '4px 0 24px rgba(0,0,0,0.12)' : '4px 0 32px rgba(0,0,0,0.5)'};
+  }
+
+  .dash-sidebar--mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Hide desktop collapse button on mobile, we use the mobile topbar button */
+  .dash-sidebar__collapse-btn { display: none; }
+
+  /* Always show brand + labels in drawer */
+  .dash-sidebar__brand { padding: 1rem 1rem 1.1rem; }
+  .dash-sidebar__logo  { display: block !important; }
+  .dash-sidebar__app-name,
+  .dash-sidebar__user-name { display: block !important; }
+  .dash-sidebar__role-badge {
+    display: flex !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    margin: 0.85rem 0.85rem 0.65rem !important;
+  }
+  .dash-sidebar__office {
+    white-space: normal !important;
+    word-break: break-all !important;
+  }
+  .dash-nav-item__label { display: inline !important; }
+  .dash-nav-item { justify-content: flex-start !important; gap: 0.55rem !important; }
+  .dash-sidebar--collapsed .dash-nav-item { justify-content: flex-start !important; gap: 0.55rem !important; }
+
+  .dash-sidebar__refresh,
+  .dash-sidebar__theme-btn {
+    font-size: 0.78rem !important;
+    text-align: left !important;
+  }
+
+  .dash-overview-strip { padding: 0.75rem 0.85rem 0.15rem; }
+  .dash-content        { padding: 0.75rem 0.85rem 2rem; }
+
+  /* Filter bar in mobile topbar: always show toggle button */
+  .filter-bar__mobile-toggle { display: flex; }
+  .filter-bar__inner { display: none; }
+  .filter-bar__inner--open { display: flex; }
+}
+
+/* ── Mobile portrait (≤599px) ── */
+@media (max-width: 599px) {
+  .overview-grid     { grid-template-columns: repeat(2, 1fr); }
+  .overview-grid--7  { grid-template-columns: repeat(2, 1fr); }
+  .overview-grid--3  { grid-template-columns: repeat(2, 1fr); }
+  .overview-grid--2  { grid-template-columns: repeat(2, 1fr); }
+
+  .kpi-card          { padding: 0.7rem 0.8rem; border-radius: 12px; }
+  .kpi-card__value   { font-size: 0.88rem; }
+  .kpi-card__label   { font-size: 0.62rem; }
+
+  .section-card      { padding: 0.9rem; border-radius: 12px; }
+  .section-card__title { font-size: 0.72rem; margin-bottom: 0.75rem; }
+
+  .dash-overview-strip { padding: 0.6rem 0.75rem 0.1rem; }
+  .dash-content        { padding: 0.6rem 0.75rem 2rem; }
+
+  .kpi-single { max-width: none; }
+
+  /* Mobile topbar row1 */
+  .dash-mobile-topbar__row1 { padding: 0.6rem 0.75rem; }
+  .dash-mobile-topbar__filters { padding: 0 0.75rem 0.6rem; padding-top: 0.5rem; }
+  .dash-mobile-topbar__title { font-size: 0.88rem; }
+
+  /* Filter bar: always use toggle+panel on mobile */
+  .filter-bar { flex-direction: column; align-items: stretch; gap: 0; width: 100%; }
+
+  .filter-bar__mobile-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: 8px;
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    color: var(--brand-text);
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Manrope', sans-serif;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+
+  .filter-bar__inner {
+    display: none;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.65rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-top: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .filter-bar__inner--open { display: flex; }
+
+  .filter-bar__group { flex-wrap: wrap; }
+  .filter-bar__row   { flex-wrap: wrap; gap: 0.4rem; }
+
+  .filter-bar__input,
+  .filter-bar__select {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.5rem;
+    max-width: 100%;
+  }
+
+  .filter-bar__period-btn { padding: 0.3rem 0.55rem; font-size: 0.75rem; }
+}
+
+/* ── Mobile landscape (short height) ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .dash-sidebar { overflow-y: auto; }
+  .dash-sidebar__brand { padding: 0.6rem 0.85rem 0.7rem; }
+  .dash-sidebar__role-badge { margin: 0.4rem 0.85rem 0.4rem; padding: 0.3rem 0.55rem; }
+  .dash-nav-item { padding: 0.42rem 0.65rem; }
+  .dash-overview-strip { display: none; }
+  .kpi-card { padding: 0.6rem 0.75rem; }
+}
 `;
 }
 

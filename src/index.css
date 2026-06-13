@@ -13,5 +13,5 @@ body {
   margin: 0;
   padding: 0;
   height: 100vh;
-  background: linear-gradient(135deg, #8f97a4 0%, #b2b1b8 25%, #f2ccf8 45%, #b2b1b8 75%, #8f97a4 100%);
+  background: rgb(233, 233, 233);
 }

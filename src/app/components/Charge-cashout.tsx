@@ -943,12 +943,105 @@ export default function ChargeCashout() {
         }
         .cc-no-office-icon { font-size: 2.5rem; }
 
-        @media (max-width: 640px) {
-          .cc-body    { padding: 1rem; }
-          .cc-header  { padding: 1rem; }
-          .cc-tabs    { padding: 0.75rem 1rem 0; }
-          .cc-form-row { flex-direction: column; }
+        @media (max-width: 768px) {
+        .cc-summary {
+          flex-direction: column;
         }
+        .cc-card {
+          min-width: 0;
+          width: 100%;
+        }
+      
+        .cc-section-head {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.6rem;
+        }
+        .cc-section-head .cc-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      
+        .cc-item-row {
+          flex-direction: column;
+          align-items: stretch !important;
+        }
+        .cc-item-row > .row {
+          width: 100%;
+          justify-content: space-between;
+        }
+      
+        .cc-filter-bar {
+          width: 100%;
+        }
+        .cc-custom-dates {
+          width: 100%;
+        }
+        .cc-custom-dates > input {
+          flex: 1;
+          min-width: 0;
+        }
+      
+        .cc-saisie-zone,
+        .cc-edit-zone {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .cc-saisie-zone .cc-form-group,
+        .cc-edit-zone .cc-form-group {
+          width: 100%;
+          min-width: 0;
+        }
+        .cc-saisie-zone > .cc-btn,
+        .cc-edit-zone > .cc-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      
+        .cc-pending-banner {
+          flex-direction: column;
+          align-items: stretch;
+          text-align: center;
+        }
+        .cc-pending-banner .cc-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+      
+      @media (max-width: 640px) {
+        .cc-body    { padding: 1rem; }
+        .cc-header  { padding: 1rem; }
+        .cc-tabs    { padding: 0.75rem 1rem 0; }
+        .cc-form-row { flex-direction: column; }
+      }
+      
+      @media (max-width: 480px) {
+        .cc-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .cc-header > .row {
+          width: 100%;
+          justify-content: space-between;
+        }
+      
+        .cc-tabs {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .cc-tab {
+          flex: 1 0 auto;
+          white-space: nowrap;
+        }
+      
+        .cc-modal {
+          padding: 1.25rem;
+          max-width: calc(100vw - 1.5rem);
+        }
+      }
+      
+
       `}</style>
 
       <div className="cc-root" data-style="neuro" data-mode="light">

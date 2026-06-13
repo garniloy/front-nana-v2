@@ -1,7 +1,5 @@
 // ─── backend ──────────────────────────────────────────────────────────────────
 const backendUrl = 'https://backend-nana-v2-production.up.railway.app';
-//const backendUrl = 'http://localhost:3000';
-
 
 async function createDataToTable(table: string, fields: object) {
   const response = await fetch(backendUrl + '/crud/create/' + table, {
@@ -13,7 +11,7 @@ async function createDataToTable(table: string, fields: object) {
 }
 
 async function updateDataInTable(table: string, fields: object, constraints: object) {
-  const body = { set : fields, where :constraints }
+  const body = { set: fields, where: constraints };
   const response = await fetch(backendUrl + '/crud/update/' + table, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -39,8 +37,6 @@ import { useImmer } from 'use-immer';
 import OfficeSelector from './Office-selector';
 
 // ─── types ────────────────────────────────────────────────────────────────────
-//type OnCloseProps = { onclose: (s: boolean) => void };
-
 type ProdServ = {
   id: number;
   nom: string;
@@ -55,7 +51,7 @@ type ProdServ = {
 
 type RefProdServ = {
   id: number;
-  prod_serv_id: number | null; // null if created directly by the office
+  prod_serv_id: number | null;
   nom: string;
   type: 'prod' | 'serv';
   pr_stock: number;
@@ -68,7 +64,15 @@ type RefProdServ = {
   is_deleted: boolean;
 };
 
-type View = 'list' | 'detail' | 'form';
+type StockItem = {
+  id?: number;
+  ref_prod_serv_id: number;
+  name: string;
+  office: string;
+  qte: number;
+};
+
+type View = 'list' | 'detail' | 'form' | 'stock';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function fmtAmount(n: number) {
@@ -84,7 +88,10 @@ function fmtDate(d: string) {
   });
 }
 
-const getInitialForm = (): Omit<RefProdServ, 'id' | 'office' | 'is_deleted' | 'prod_serv_id' | 'modifier' | 'last_modification'> => ({
+const getInitialForm = (): Omit<
+  RefProdServ,
+  'id' | 'office' | 'is_deleted' | 'prod_serv_id' | 'modifier' | 'last_modification'
+> => ({
   nom: '',
   type: 'prod',
   pr_stock: 0,
@@ -93,10 +100,66 @@ const getInitialForm = (): Omit<RefProdServ, 'id' | 'office' | 'is_deleted' | 'p
   pv: 0,
 });
 
+// ─── responsive styles ─────────────────────────────────────────────────────────
+const PSM_STYLES = `
+  @media (max-width: 768px) {
+    .psm-header {
+      flex-direction: column;
+      align-items: stretch !important;
+      gap: 0.75rem;
+    }
+    .psm-header > .row {
+      flex-wrap: wrap;
+      justify-content: stretch;
+    }
+    .psm-header .row.gap-sm.align-center {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .psm-toolbar {
+      flex-direction: column;
+      align-items: stretch !important;
+    }
+    .psm-toolbar > input,
+    .psm-toolbar > div {
+      width: 100%;
+    }
+
+    .psm-sync-banner {
+      flex-direction: column;
+      align-items: stretch !important;
+    }
+    .psm-sync-banner > .row {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .psm-grid-2 {
+      grid-template-columns: 1fr !important;
+    }
+
+    .psm-row {
+      flex-wrap: wrap;
+    }
+    .psm-row > .row.gap-xs.align-center {
+      width: 100%;
+      justify-content: space-between;
+      margin-top: 0.4rem;
+    }
+
+    .psm-restore-modal {
+      max-width: 100% !important;
+      margin: 0.5rem;
+    }
+  }
+`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ProdServManager() {
-  const navigate  = useNavigate();
-  const user      = JSON.parse(localStorage.getItem('user') || 'null');
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
   const connected = localStorage.getItem('connected');
 
   useEffect(() => {
@@ -107,44 +170,52 @@ export default function ProdServManager() {
     }
   }, [connected, user, navigate]);
 
-  // owner === true sees the OfficeSelector; managers/superusers do not
   const showOfficeSelector = user?.owner === true;
   const canEdit = user?.owner === true || user?.role === 'superuser';
 
   // ── navigation ────────────────────────────────────────────────────────────
-  const [view, setView]                   = useState<View>('list');
-  const [selectedItem, setSelectedItem]   = useState<RefProdServ | null>(null);
+  const [view, setView] = useState<View>('list');
+  const [selectedItem, setSelectedItem] = useState<RefProdServ | null>(null);
   const [selectedOffice, setSelectedOffice] = useState<string>(
     showOfficeSelector ? '' : user?.office ?? '',
   );
 
   // ── list state ────────────────────────────────────────────────────────────
-  const [items, setItems]           = useState<RefProdServ[]>([]);
+  const [items, setItems] = useState<RefProdServ[]>([]);
   const [listLoading, setListLoading] = useState(false);
-  const [search, setSearch]         = useState('');
+  const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'prod' | 'serv'>('all');
 
   // ── sync state ────────────────────────────────────────────────────────────
-  const [syncing, setSyncing]         = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
 
   // ── form state ────────────────────────────────────────────────────────────
-  const [form, setForm]     = useImmer(getInitialForm());
+  const [form, setForm] = useImmer(getInitialForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
 
   // ── edit state (detail view) ──────────────────────────────────────────────
-  const [editForm, setEditForm]   = useImmer<Partial<RefProdServ>>({});
+  const [editForm, setEditForm] = useImmer<Partial<RefProdServ>>({});
   const [editLoading, setEditLoading] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
-  const [editErrors, setEditErrors]   = useState<Record<string, string>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   // ── restore modal state ───────────────────────────────────────────────────
-  const [showRestoreModal, setShowRestoreModal]   = useState(false);
-  const [deletedItems, setDeletedItems]           = useState<RefProdServ[]>([]);
-  const [restoreLoading, setRestoreLoading]       = useState(false);
-  const [restoringId, setRestoringId]             = useState<number | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [deletedItems, setDeletedItems] = useState<RefProdServ[]>([]);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+
+  // ── stock state ───────────────────────────────────────────────────────────
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockSearch, setStockSearch] = useState('');
+  // editing: map of ref_prod_serv_id -> draft qte string
+  const [stockEdits, setStockEdits] = useState<Record<number, string>>({});
+  const [stockSaving, setStockSaving] = useState<number | null>(null);
+  const [stockSuccess, setStockSuccess] = useState<number | null>(null);
 
   // ─── fetch ref items ───────────────────────────────────────────────────────
   const fetchItems = useCallback(async (office: string) => {
@@ -152,12 +223,13 @@ export default function ProdServManager() {
     setListLoading(true);
     try {
       const res = await getDataFromTableWithConstraints('ref_prod_serv', {
-        fields: ['id', 'prod_serv_id', 'nom', 'type', 'pr_stock', 'pr_distr', 'pr_clt', 'pv', 'modifier', 'last_modification', 'office', 'is_deleted'],
+        fields: [
+          'id', 'prod_serv_id', 'nom', 'type', 'pr_stock', 'pr_distr',
+          'pr_clt', 'pv', 'modifier', 'last_modification', 'office', 'is_deleted',
+        ],
         constraints: { office, is_deleted: false },
       });
       if (res.success) setItems(res.list ?? []);
-    } catch {
-      // silently ignore
     } finally {
       setListLoading(false);
     }
@@ -168,18 +240,41 @@ export default function ProdServManager() {
     fetchItems(office);
   }, [selectedOffice]);
 
+  // ─── fetch stock ───────────────────────────────────────────────────────────
+  const fetchStock = useCallback(async (office: string) => {
+    if (!office) return;
+    setStockLoading(true);
+    try {
+      const res = await getDataFromTableWithConstraints('stock', {
+        fields: ['ref_prod_serv_id', 'name', 'office', 'qte'],
+        constraints: { office },
+      });
+      if (res.success) setStockItems(res.list ?? []);
+    } finally {
+      setStockLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === 'stock') {
+      const office = showOfficeSelector ? selectedOffice : user?.office ?? '';
+      fetchStock(office);
+    }
+  }, [view, selectedOffice]);
+
   // ─── fetch deleted items for restore modal ────────────────────────────────
   const fetchDeletedItems = useCallback(async (office: string) => {
     if (!office) return;
     setRestoreLoading(true);
     try {
       const res = await getDataFromTableWithConstraints('ref_prod_serv', {
-        fields: ['id', 'prod_serv_id', 'nom', 'type', 'pr_stock', 'pr_distr', 'pr_clt', 'pv', 'modifier', 'last_modification', 'office', 'is_deleted'],
+        fields: [
+          'id', 'prod_serv_id', 'nom', 'type', 'pr_stock', 'pr_distr',
+          'pr_clt', 'pv', 'modifier', 'last_modification', 'office', 'is_deleted',
+        ],
         constraints: { office, is_deleted: true },
       });
       if (res.success) setDeletedItems(res.list ?? []);
-    } catch {
-      // silently ignore
     } finally {
       setRestoreLoading(false);
     }
@@ -201,11 +296,8 @@ export default function ProdServManager() {
         { id: item.id },
       );
       if (res.success === false) throw new Error(res.message);
-      // remove from deleted list, add back to active list
       setDeletedItems((prev) => prev.filter((d) => d.id !== item.id));
       setItems((prev) => [...prev, { ...item, is_deleted: false }]);
-    } catch {
-      // silently ignore
     } finally {
       setRestoringId(null);
     }
@@ -238,7 +330,16 @@ export default function ProdServManager() {
           .filter((id: number | null) => id !== null),
       );
 
-      // 3. find new prod_serv entries not yet in ref for this office
+      // 3. fetch existing stock entries for this office
+      const stockRes = await getDataFromTableWithConstraints('stock', {
+        fields: ['ref_prod_serv_id'],
+        constraints: { office },
+      });
+      const existingStockRefIds = new Set<number>(
+        (stockRes.list ?? []).map((s: StockItem) => s.ref_prod_serv_id),
+      );
+
+      // 4. find new prod_serv entries not yet in ref for this office
       const toInsert = allPS.filter((ps) => !existingPsIds.has(ps.id));
 
       if (toInsert.length === 0) {
@@ -247,85 +348,87 @@ export default function ProdServManager() {
         return;
       }
 
-      // 4. insert each missing one
+      // 5. insert each missing one into ref_prod_serv, then init stock if prod
+      let stockInitCount = 0;
       for (const ps of toInsert) {
-        await createDataToTable('ref_prod_serv', {
-          prod_serv_id:      ps.id,
-          nom:               ps.nom,
-          type:              ps.type,
-          pr_stock:          ps.pr_stock,
-          pr_distr:          ps.pr_distr,
-          pr_clt:            ps.pr_clt,
-          pv:                ps.pv,
-          modifier:          user.id,
+        const refData = await createDataToTable('ref_prod_serv', {
+          prod_serv_id: ps.id,
+          nom: ps.nom,
+          type: ps.type,
+          pr_stock: ps.pr_stock,
+          pr_distr: ps.pr_distr,
+          pr_clt: ps.pr_clt,
+          pv: ps.pv,
+          modifier: user.id,
           last_modification: 'now()',
           office,
-          is_deleted:        false,
+          is_deleted: false,
         });
+
+        // 6. init stock entry for products only (not services)
+        if (ps.type === 'prod' && refData.success !== false) {
+          const newRefId = refData.id ?? null;
+          if (newRefId && !existingStockRefIds.has(newRefId)) {
+            await createDataToTable('stock', {
+              ref_prod_serv_id: newRefId,
+              name: ps.nom,
+              office,
+              qte: 0,
+            });
+            stockInitCount++;
+          }
+        }
       }
 
-      setSyncMessage(`${toInsert.length} produit(s)/service(s) ajouté(s) avec succès.`);
+      setSyncMessage(
+        `${toInsert.length} produit(s)/service(s) ajouté(s)` +
+        (stockInitCount > 0 ? ` · ${stockInitCount} stock(s) initialisé(s) à 0` : '') +
+        '.',
+      );
       fetchItems(office);
     } catch (err: any) {
       setSyncMessage('Erreur de synchronisation : ' + err.message);
     } finally {
       setSyncing(false);
-      setTimeout(() => setSyncMessage(''), 4000);
+      setTimeout(() => setSyncMessage(''), 5000);
     }
   };
 
   // ─── form validation ───────────────────────────────────────────────────────
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.nom.trim())           errs.nom     = 'Nom requis';
-    if (!form.type)                 errs.type    = 'Type requis';
+    if (!form.nom.trim()) errs.nom = 'Nom requis';
+    if (!form.type) errs.type = 'Type requis';
     if (isNaN(Number(form.pv)) || Number(form.pv) < 0) errs.pv = 'Prix de vente invalide';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  // ─── create new prod/serv ──────────────────────────────────────────────────
+  // ─── create new prod/serv — catalogue only, sync will handle ref + stock ──
   const handleSubmit = async () => {
     setSuccess('');
     if (!validate()) return;
     setLoading(true);
-    const office = showOfficeSelector ? selectedOffice : user?.office ?? '';
     try {
-      // 1. insert into prod_serv (global catalogue)
+      // Insert only into prod_serv (global catalogue).
+      // Sync button will clone into ref_prod_serv + init stock.
       const psData = await createDataToTable('prod_serv', {
-        nom:               form.nom,
-        type:              form.type,
-        pr_stock:          Number(form.pr_stock),
-        pr_distr:          Number(form.pr_distr),
-        pr_clt:            Number(form.pr_clt),
-        pv:                Number(form.pv),
-        modifier:          user.id,
+        nom: form.nom,
+        type: form.type,
+        pr_stock: Number(form.pr_stock),
+        pr_distr: Number(form.pr_distr),
+        pr_clt: Number(form.pr_clt),
+        pv: Number(form.pv),
+        modifier: user.id,
         last_modification: 'now()',
       });
       if (psData.success === false) throw new Error(psData.message || 'Erreur prod_serv');
 
-      const newPsId = psData.data?.id ?? null;
-
-      // 2. insert into ref_prod_serv for this office
-      const refData = await createDataToTable('ref_prod_serv', {
-        prod_serv_id:      newPsId,
-        nom:               form.nom,
-        type:              form.type,
-        pr_stock:          Number(form.pr_stock),
-        pr_distr:          Number(form.pr_distr),
-        pr_clt:            Number(form.pr_clt),
-        pv:                Number(form.pv),
-        modifier:          user.id,
-        last_modification: 'now()',
-        office,
-        is_deleted:        false,
-      });
-      if (refData.success === false) throw new Error(refData.message || 'Erreur ref_prod_serv');
-
-      setSuccess('Produit/service créé avec succès');
+      setSuccess(
+        '✓ Produit ajouté au catalogue global. Cliquez sur « Actualiser » pour l\'intégrer au répertoire de ce bureau.',
+      );
       setForm(getInitialForm());
-      fetchItems(office);
-      setTimeout(() => { setSuccess(''); setView('list'); }, 1800);
+      setTimeout(() => { setSuccess(''); setView('list'); }, 3500);
     } catch (err: any) {
       setErrors({ global: err.message });
     } finally {
@@ -338,12 +441,12 @@ export default function ProdServManager() {
   const openDetail = (item: RefProdServ) => {
     setSelectedItem(item);
     setEditForm({
-      nom:      item.nom,
-      type:     item.type,
+      nom: item.nom,
+      type: item.type,
       pr_stock: item.pr_stock,
       pr_distr: item.pr_distr,
-      pr_clt:   item.pr_clt,
-      pv:       item.pv,
+      pr_clt: item.pr_clt,
+      pv: item.pv,
     });
     setEditSuccess('');
     setEditErrors({});
@@ -354,7 +457,7 @@ export default function ProdServManager() {
   const handleEditSave = async () => {
     if (!selectedItem) return;
     const errs: Record<string, string> = {};
-    if (!editForm.nom?.trim())                errs.nom = 'Nom requis';
+    if (!editForm.nom?.trim()) errs.nom = 'Nom requis';
     if (isNaN(Number(editForm.pv)) || Number(editForm.pv) < 0) errs.pv = 'Prix invalide';
     setEditErrors(errs);
     if (Object.keys(errs).length > 0) return;
@@ -365,21 +468,30 @@ export default function ProdServManager() {
       const res = await updateDataInTable(
         'ref_prod_serv',
         {
-          nom:               editForm.nom,
-          type:              editForm.type,
-          pr_stock:          Number(editForm.pr_stock),
-          pr_distr:          Number(editForm.pr_distr),
-          pr_clt:            Number(editForm.pr_clt),
-          pv:                Number(editForm.pv),
-          modifier:          user.id,
+          nom: editForm.nom,
+          type: editForm.type,
+          pr_stock: Number(editForm.pr_stock),
+          pr_distr: Number(editForm.pr_distr),
+          pr_clt: Number(editForm.pr_clt),
+          pv: Number(editForm.pv),
+          modifier: user.id,
           last_modification: 'now()',
         },
         { id: selectedItem.id },
       );
       if (res.success === false) throw new Error(res.message || 'Erreur serveur');
 
+      // If it's a product and name changed, update stock name too
+      const nameChanged = editForm.nom !== selectedItem.nom;
+      if (selectedItem.type === 'prod' && nameChanged) {
+        await updateDataInTable(
+          'stock',
+          { name: editForm.nom },
+          { ref_prod_serv_id: selectedItem.id },
+        );
+      }
+
       setEditSuccess('Modifications enregistrées');
-      // update local list
       setItems((prev) =>
         prev.map((it) =>
           it.id === selectedItem.id
@@ -388,8 +500,18 @@ export default function ProdServManager() {
         ),
       );
       setSelectedItem((prev) =>
-        prev ? { ...prev, ...editForm, modifier: user.id, last_modification: new Date().toISOString() } : prev,
+        prev
+          ? { ...prev, ...editForm, modifier: user.id, last_modification: new Date().toISOString() }
+          : prev,
       );
+      // Also sync name in local stockItems if present
+      if (selectedItem.type === 'prod' && nameChanged) {
+        setStockItems((prev) =>
+          prev.map((s) =>
+            s.ref_prod_serv_id === selectedItem.id ? { ...s, name: editForm.nom ?? s.name } : s,
+          ),
+        );
+      }
       setTimeout(() => setEditSuccess(''), 2500);
     } catch (err: any) {
       setEditErrors({ global: err.message });
@@ -410,12 +532,54 @@ export default function ProdServManager() {
     }
   };
 
+  // ─── stock inline edit ────────────────────────────────────────────────────
+  const handleStockEdit = (refId: number, value: string) => {
+    setStockEdits((prev) => ({ ...prev, [refId]: value }));
+  };
+
+  const handleStockSave = async (item: StockItem) => {
+    const draft = stockEdits[item.ref_prod_serv_id];
+    if (draft === undefined) return;
+    const newQte = parseInt(draft, 10);
+    if (isNaN(newQte) || newQte < 0) return;
+
+    setStockSaving(item.ref_prod_serv_id);
+    try {
+      const res = await updateDataInTable(
+        'stock',
+        { qte: newQte },
+        { ref_prod_serv_id: item.ref_prod_serv_id },
+      );
+      if (res.success === false) throw new Error(res.message);
+      setStockItems((prev) =>
+        prev.map((s) =>
+          s.ref_prod_serv_id === item.ref_prod_serv_id ? { ...s, qte: newQte } : s,
+        ),
+      );
+      setStockEdits((prev) => {
+        const next = { ...prev };
+        delete next[item.ref_prod_serv_id];
+        return next;
+      });
+      setStockSuccess(item.ref_prod_serv_id);
+      setTimeout(() => setStockSuccess(null), 1800);
+    } catch {
+      // silently ignore
+    } finally {
+      setStockSaving(null);
+    }
+  };
+
   // ─── filtered list ─────────────────────────────────────────────────────────
   const filteredItems = items.filter((it) => {
     const matchSearch = it.nom.toLowerCase().includes(search.toLowerCase());
-    const matchType   = filterType === 'all' || it.type === filterType;
+    const matchType = filterType === 'all' || it.type === filterType;
     return matchSearch && matchType;
   });
+
+  const filteredStock = stockItems.filter((s) =>
+    s.name.toLowerCase().includes(stockSearch.toLowerCase()),
+  );
 
   // ─── office change ─────────────────────────────────────────────────────────
   const handleOfficeSelect = (office: string) => {
@@ -434,18 +598,21 @@ export default function ProdServManager() {
       data-mode="light"
       style={{ width: '100%', height: '100%', overflow: 'hidden' }}
     >
+      <style>{PSM_STYLES}</style>
+
       <div
         className="surface col gap-md"
         style={{ width: '100%', height: '100%', overflow: 'hidden' }}
       >
         {/* ── HEADER ──────────────────────────────────────────────────────── */}
-        <div className="row align-center justify-between" style={{ padding: '0 0.25rem', flexShrink: 0 }}>
+        <div className="row align-center justify-between psm-header" style={{ padding: '0 0.25rem', flexShrink: 0 }}>
           <div className="col gap-xs">
             <h2 className="text-heading text-2xl">Produits & Services</h2>
             <p className="text-body text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {view === 'list'   && `${filteredItems.length} article${filteredItems.length !== 1 ? 's' : ''}`}
-              {view === 'form'   && 'Nouveau produit / service'}
+              {view === 'list' && `${filteredItems.length} article${filteredItems.length !== 1 ? 's' : ''}`}
+              {view === 'form' && 'Nouveau produit / service'}
               {view === 'detail' && selectedItem?.nom}
+              {view === 'stock' && `${filteredStock.length} produit${filteredStock.length !== 1 ? 's' : ''} en stock`}
             </p>
           </div>
 
@@ -471,17 +638,24 @@ export default function ProdServManager() {
                 Liste
               </button>
               {canEdit && (
-                <button
-                  className={`btn btn-sm${view === 'form' ? ' btn-primary' : ' btn-ghost'}`}
-                  style={{ fontSize: '0.8rem' }}
-                  onClick={() => setView('form')}
-                >
-                  + Nouveau
-                </button>
+                <>
+                  <button
+                    className={`btn btn-sm${view === 'stock' ? ' btn-primary' : ' btn-ghost'}`}
+                    style={{ fontSize: '0.8rem' }}
+                    onClick={() => { setView('stock'); setSelectedItem(null); }}
+                  >
+                    📦 Stock
+                  </button>
+                  <button
+                    className={`btn btn-sm${view === 'form' ? ' btn-primary' : ' btn-ghost'}`}
+                    style={{ fontSize: '0.8rem' }}
+                    onClick={() => setView('form')}
+                  >
+                    + Nouveau
+                  </button>
+                </>
               )}
             </div>
-
-            
           </div>
         </div>
 
@@ -495,7 +669,7 @@ export default function ProdServManager() {
             <div className="col gap-md" style={{ height: '100%', overflow: 'hidden' }}>
 
               {/* toolbar */}
-              <div className="row gap-sm align-center" style={{ flexShrink: 0, flexWrap: 'wrap' }}>
+              <div className="row gap-sm align-center psm-toolbar" style={{ flexShrink: 0, flexWrap: 'wrap' }}>
                 <input
                   className="input"
                   style={{ flex: 1, minWidth: '8rem' }}
@@ -539,7 +713,7 @@ export default function ProdServManager() {
               {/* sync banner */}
               {canEdit && (
                 <div
-                  className="surface-inset row align-center justify-between gap-sm"
+                  className="surface-inset row align-center justify-between gap-sm psm-sync-banner"
                   style={{ padding: '0.6rem 0.85rem', borderRadius: '0.6rem', flexShrink: 0 }}
                 >
                   <div className="col gap-xs">
@@ -547,7 +721,7 @@ export default function ProdServManager() {
                       Synchroniser le répertoire
                     </p>
                     <p className="text-body text-sm" style={{ color: 'var(--color-text-secondary)', margin: 0 }}>
-                      Importe les nouveaux produits/services depuis le catalogue global
+                      Importe les nouveaux produits/services depuis le catalogue global et initialise les stocks
                     </p>
                     {syncMessage && (
                       <p
@@ -618,6 +792,143 @@ export default function ProdServManager() {
                         onDelete={() => handleDelete(it)}
                       />
                     ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ STOCK VIEW ═══════════════════════════════════════════════ */}
+          {view === 'stock' && (
+            <div className="col gap-md" style={{ height: '100%', overflow: 'hidden' }}>
+
+              {/* toolbar */}
+              <div className="row gap-sm align-center" style={{ flexShrink: 0 }}>
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  placeholder="Rechercher un produit…"
+                  value={stockSearch}
+                  onChange={(e) => setStockSearch(e.target.value)}
+                />
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => fetchStock(showOfficeSelector ? selectedOffice : user?.office ?? '')}
+                  title="Rafraîchir"
+                >
+                  ↻
+                </button>
+              </div>
+
+              {/* stock list */}
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {stockLoading ? (
+                  <div className="col align-center justify-center" style={{ height: '10rem' }}>
+                    <p className="text-body text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                      Chargement…
+                    </p>
+                  </div>
+                ) : filteredStock.length === 0 ? (
+                  <div className="col align-center justify-center" style={{ height: '10rem', gap: '0.75rem' }}>
+                    <p className="text-body text-sm" style={{ color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+                      {stockItems.length === 0
+                        ? 'Aucun stock initialisé. Cliquez sur « Actualiser » dans la liste.'
+                        : 'Aucun produit correspondant.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="col gap-sm">
+                    {filteredStock.map((item) => {
+                      const isDirty = stockEdits[item.ref_prod_serv_id] !== undefined;
+                      const isSaving = stockSaving === item.ref_prod_serv_id;
+                      const isOk = stockSuccess === item.ref_prod_serv_id;
+                      const currentQte = isDirty
+                        ? stockEdits[item.ref_prod_serv_id]
+                        : String(item.qte);
+                      const isLow = item.qte <= 2;
+
+                      return (
+                        <div
+                          key={item.ref_prod_serv_id}
+                          className="surface-inset row align-center gap-md psm-row"
+                          style={{
+                            padding: '0.65rem 0.85rem',
+                            borderRadius: '0.6rem',
+                            borderLeft: isLow ? '3px solid var(--color-warning, #f59e0b)' : undefined,
+                          }}
+                        >
+                          {/* icon */}
+                          <div
+                            style={{
+                              width: '2.4rem',
+                              height: '2.4rem',
+                              borderRadius: '0.5rem',
+                              background: 'var(--color-background-brand)',
+                              color: 'var(--color-text-brand)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '0.7rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            PRD
+                          </div>
+
+                          {/* name */}
+                          <div className="col gap-xs" style={{ flex: 1, minWidth: 0 }}>
+                            <p
+                              className="text-label"
+                              style={{
+                                margin: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {item.name}
+                            </p>
+                            {isLow && !isDirty && (
+                              <p
+                                className="text-body text-sm"
+                                style={{ margin: 0, color: 'var(--color-warning, #f59e0b)', fontSize: '0.72rem' }}
+                              >
+                                ⚠ Stock faible
+                              </p>
+                            )}
+                          </div>
+
+                          {/* inline edit */}
+                          <div className="row gap-xs align-center" style={{ flexShrink: 0 }}>
+                            <input
+                              type="number"
+                              min={0}
+                              className="input"
+                              style={{ width: '5rem', textAlign: 'center', padding: '0.3rem 0.5rem' }}
+                              value={currentQte}
+                              onChange={(e) => handleStockEdit(item.ref_prod_serv_id, e.target.value)}
+                            />
+                            <span className="text-body text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                              unité{item.qte !== 1 ? 's' : ''}
+                            </span>
+                            {isDirty && (
+                              <button
+                                className={`btn btn-primary btn-sm${isSaving ? ' opacity-75' : ''}`}
+                                disabled={isSaving}
+                                onClick={() => handleStockSave(item)}
+                                style={{ fontSize: '0.78rem', padding: '0.3rem 0.65rem' }}
+                              >
+                                {isSaving ? '…' : isOk ? '✓' : '✓ Confirmer'}
+                              </button>
+                            )}
+                            {!isDirty && isOk && (
+                              <span style={{ color: 'var(--color-success)', fontSize: '0.85rem' }}>✓</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -695,13 +1006,13 @@ export default function ProdServManager() {
                     </div>
 
                     {/* Prix — grid 2 cols */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div className="psm-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       {(
                         [
                           { key: 'pr_stock', label: 'Prix stock' },
                           { key: 'pr_distr', label: 'Prix distributeur' },
-                          { key: 'pr_clt',   label: 'Prix client' },
-                          { key: 'pv',       label: 'Prix de vente (PV)' },
+                          { key: 'pr_clt', label: 'Prix client' },
+                          { key: 'pv', label: 'Prix de vente (PV)' },
                         ] as const
                       ).map(({ key, label }) => (
                         <div key={key} className="col gap-xs">
@@ -718,7 +1029,6 @@ export default function ProdServManager() {
                     </div>
                     {editErrors.pv && <span className="badge badge-danger">{editErrors.pv}</span>}
 
-                    {/* feedback */}
                     {editErrors.global && (
                       <span className="badge badge-danger w-full" style={{ justifyContent: 'center' }}>
                         {editErrors.global}
@@ -740,15 +1050,15 @@ export default function ProdServManager() {
                   </div>
                 ) : (
                   /* read-only view for managers */
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                  <div className="psm-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
                     {(
                       [
-                        { label: 'Nom',              value: selectedItem.nom },
-                        { label: 'Type',             value: selectedItem.type === 'prod' ? 'Produit' : 'Service' },
-                        { label: 'Prix stock',       value: fmtAmount(selectedItem.pr_stock) },
+                        { label: 'Nom', value: selectedItem.nom },
+                        { label: 'Type', value: selectedItem.type === 'prod' ? 'Produit' : 'Service' },
+                        { label: 'Prix stock', value: fmtAmount(selectedItem.pr_stock) },
                         { label: 'Prix distributeur', value: fmtAmount(selectedItem.pr_distr) },
-                        { label: 'Prix client',      value: fmtAmount(selectedItem.pr_clt) },
-                        { label: 'Prix de vente',    value: fmtAmount(selectedItem.pv) },
+                        { label: 'Prix client', value: fmtAmount(selectedItem.pr_clt) },
+                        { label: 'Prix de vente', value: fmtAmount(selectedItem.pv) },
                       ]
                     ).map(({ label, value }) => (
                       <div
@@ -771,6 +1081,23 @@ export default function ProdServManager() {
           {/* ═══ FORM VIEW (create) ═══════════════════════════════════════ */}
           {view === 'form' && (
             <div className="col gap-md" style={{ height: '100%', overflow: 'hidden' }}>
+
+              {/* info banner */}
+              <div
+                className="surface-inset"
+                style={{
+                  padding: '0.6rem 0.85rem',
+                  borderRadius: '0.6rem',
+                  borderLeft: '3px solid var(--color-brand)',
+                  flexShrink: 0,
+                }}
+              >
+                <p className="text-body text-sm" style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+                  💡 Le produit sera ajouté au catalogue global. Cliquez ensuite sur{' '}
+                  <strong>« ⟳ Actualiser »</strong> dans la liste pour l'intégrer au répertoire de ce bureau et initialiser son stock.
+                </p>
+              </div>
+
               <div className="form-field" style={{ overflow: 'auto', padding: '0.3rem', flex: 1 }}>
 
                 {/* Nom */}
@@ -806,13 +1133,13 @@ export default function ProdServManager() {
                 </div>
 
                 {/* Prix */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="psm-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   {(
                     [
                       { key: 'pr_stock', label: 'Prix stock' },
                       { key: 'pr_distr', label: 'Prix distributeur' },
-                      { key: 'pr_clt',   label: 'Prix client' },
-                      { key: 'pv',       label: 'Prix de vente (PV)' },
+                      { key: 'pr_clt', label: 'Prix client' },
+                      { key: 'pv', label: 'Prix de vente (PV)' },
                     ] as const
                   ).map(({ key, label }) => (
                     <div key={key} className="col gap-xs">
@@ -829,31 +1156,18 @@ export default function ProdServManager() {
                   ))}
                 </div>
                 {errors.pv && <span className="badge badge-danger">{errors.pv}</span>}
-
-                {/* Bureau (readonly) */}
-                <div className="col gap-xs">
-                  <label className="text-label">Bureau</label>
-                  <input
-                    disabled
-                    className="input"
-                    placeholder={
-                      showOfficeSelector
-                        ? selectedOffice || 'Sélectionnez un bureau'
-                        : user?.office
-                    }
-                    value=""
-                  />
-                </div>
               </div>
 
-              {/* feedback */}
               {errors.global && (
                 <span className="badge badge-danger w-full" style={{ justifyContent: 'center', flexShrink: 0 }}>
                   {errors.global}
                 </span>
               )}
               {success && (
-                <span className="badge badge-success w-full" style={{ justifyContent: 'center', flexShrink: 0 }}>
+                <span
+                  className="badge badge-success w-full"
+                  style={{ justifyContent: 'center', flexShrink: 0, whiteSpace: 'normal', textAlign: 'center' }}
+                >
                   {success}
                 </span>
               )}
@@ -864,7 +1178,7 @@ export default function ProdServManager() {
                 onClick={handleSubmit}
                 style={{ flexShrink: 0 }}
               >
-                {loading ? 'Enregistrement…' : 'Enregistrer'}
+                {loading ? 'Enregistrement…' : 'Enregistrer dans le catalogue'}
               </button>
             </div>
           )}
@@ -887,7 +1201,7 @@ export default function ProdServManager() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowRestoreModal(false); }}
         >
           <div
-            className="surface col gap-md"
+            className="surface col gap-md psm-restore-modal"
             style={{
               width: '100%',
               maxWidth: '28rem',
@@ -899,7 +1213,6 @@ export default function ProdServManager() {
               flexDirection: 'column',
             }}
           >
-            {/* modal header */}
             <div className="row align-center justify-between" style={{ flexShrink: 0 }}>
               <div className="col gap-xs">
                 <h3 className="text-heading" style={{ margin: 0, fontSize: '1.1rem' }}>
@@ -909,17 +1222,13 @@ export default function ProdServManager() {
                   Articles supprimés pour ce bureau
                 </p>
               </div>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShowRestoreModal(false)}
-              >
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowRestoreModal(false)}>
                 ✕
               </button>
             </div>
 
             <div className="divider" style={{ flexShrink: 0 }} />
 
-            {/* modal body */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {restoreLoading ? (
                 <div className="col align-center justify-center" style={{ height: '8rem' }}>
@@ -938,10 +1247,9 @@ export default function ProdServManager() {
                   {deletedItems.map((item) => (
                     <div
                       key={item.id}
-                      className="surface-inset row align-center gap-md"
+                      className="surface-inset row align-center gap-md psm-row"
                       style={{ padding: '0.65rem 0.85rem', borderRadius: '0.6rem' }}
                     >
-                      {/* type badge */}
                       <div
                         style={{
                           width: '2.2rem',
@@ -964,7 +1272,6 @@ export default function ProdServManager() {
                         {item.type === 'prod' ? 'PRD' : 'SRV'}
                       </div>
 
-                      {/* info */}
                       <div className="col gap-xs" style={{ flex: 1, minWidth: 0 }}>
                         <p
                           className="text-label"
@@ -983,7 +1290,6 @@ export default function ProdServManager() {
                         </p>
                       </div>
 
-                      {/* restore button */}
                       <button
                         className={`btn btn-sm btn-primary${restoringId === item.id ? ' opacity-75' : ''}`}
                         disabled={restoringId === item.id}
@@ -1018,7 +1324,7 @@ function ProdServRow({
 }) {
   return (
     <div
-      className="surface-inset row align-center gap-md"
+      className="surface-inset row align-center gap-md psm-row"
       style={{
         padding: '0.65rem 0.85rem',
         borderRadius: '0.6rem',
@@ -1053,33 +1359,19 @@ function ProdServRow({
         {item.type === 'prod' ? 'PRD' : 'SRV'}
       </div>
 
-      {/* info */}
-      <div
-        className="col gap-xs"
-        style={{ flex: 1, minWidth: 0 }}
-        onClick={onClick}
-      >
+      <div className="col gap-xs" style={{ flex: 1, minWidth: 0 }} onClick={onClick}>
         <p
           className="text-label"
-          style={{
-            margin: 0,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
+          style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
           {item.nom}
         </p>
-        <p
-          className="text-body text-sm"
-          style={{ color: 'var(--color-text-secondary)', margin: 0 }}
-        >
-          PV : {Number(item.pv).toLocaleString('fr-FR')} FCFA
+        <p className="text-body text-sm" style={{ color: 'var(--color-text-secondary)', margin: 0 }}>
+          PV : {Number(item.pv).toLocaleString('fr-FR')}
           {item.pr_clt ? ` · Client : ${Number(item.pr_clt).toLocaleString('fr-FR')} FCFA` : ''}
         </p>
       </div>
 
-      {/* actions */}
       <div className="row gap-xs align-center" style={{ flexShrink: 0 }}>
         {canEdit && (
           <button
@@ -1091,10 +1383,7 @@ function ProdServRow({
             ✕
           </button>
         )}
-        <span
-          style={{ color: 'var(--color-text-tertiary)', fontSize: '1rem' }}
-          onClick={onClick}
-        >
+        <span style={{ color: 'var(--color-text-tertiary)', fontSize: '1rem' }} onClick={onClick}>
           ›
         </span>
       </div>

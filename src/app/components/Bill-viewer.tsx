@@ -12,12 +12,20 @@ const getDataFromTableWithConstraints = async (table: string, body: object) => {
     return res.json();
 };
 
-
+const updateDataInTable = async (table: string, fields: object, constraints: object) => {
+    const body = { set: fields, where: constraints };
+    const res = await fetch(backendUrl + '/crud/update/' + table, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return res.json();
+};
 
 type ActivityDetail = {
     nb_prod: number;
     nb_serv: number;
-    alements: { name: string; qty: number; total: number; benef: number; pv: number; commission: number | null }[];
+    alements: { name: string; type: string; qty: number; total: number; benef: number; pv: number; commission: number | null }[];
     sellerName: string;
     clientName: string;
     commission: number;
@@ -36,10 +44,9 @@ type Activity = {
     bill_sent: boolean;
     total_pv: number;
     details: ActivityDetail;
-    // nouveaux champs
     waiting_reglement: boolean;
     date_reglement: string | null;
-    issue : string
+    issue: string;
 };
 
 type Filter = 'today' | 'week' | 'month';
@@ -50,7 +57,6 @@ const FILTERS: { label: string; value: Filter }[] = [
     { label: 'Ce mois', value: 'month' },
 ];
 
-// Paiements qui déclenchent waiting_reglement = true
 const PENDING_MODES = ['attente_paiement', 'paiement_livraison'];
 
 function isPendingMode(mode: string) {
@@ -60,12 +66,11 @@ function isPendingMode(mode: string) {
 function paymentLabel(mode: string) {
     if (mode === 'attente_paiement') return 'En attente';
     if (mode === 'paiement_livraison') return 'À la livraison';
-    if (mode === 'not_valid') return 'Annule';
+    if (mode === 'not_valid') return 'Annulé';
     return mode;
 }
 
-function paymentBadgeClass( waiting: boolean) {
-    
+function paymentBadgeClass(waiting: boolean) {
     if (waiting) return 'badge badge-danger';
     return 'badge badge-success';
 }
@@ -104,24 +109,25 @@ function getInitials(name: string) {
 }
 
 type props = {
-  office : string
-}
+    office: string;
+};
 
-export default function Bills({office}:props) {
+export default function Bills({ office }: props) {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [filter, setFilter] = useState<Filter>('today');
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState<string | null>(null);
     const [validating, setValidating] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [successId, setSuccessId] = useState<string | null>(null);
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-    
+    const canDelete = user?.owner === true || user?.role === 'superuser';
 
     useEffect(() => {
         async function fetchActivities() {
             setLoading(true);
-            const field = { contraints: { office: office} };
+            const field = { contraints: { office: office } };
             try {
                 const res = await getDataFromTableWithConstraints('activity', field);
                 setActivities(res.list ?? res ?? []);
@@ -133,8 +139,6 @@ export default function Bills({office}:props) {
         }
         fetchActivities();
     }, [office]);
-
-
 
     const showError = useCallback((msg: string) => {
         setError(msg);
@@ -172,7 +176,6 @@ export default function Bills({office}:props) {
         }
     }
 
-    // ── Valider le règlement d'un paiement en attente
     async function validateReglement(activity: Activity) {
         if (validating) return;
         setValidating(activity.id);
@@ -184,15 +187,13 @@ export default function Bills({office}:props) {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || 'Erreur serveur');
 
-            // Mise à jour locale : la carte revient à la normale
             setActivities((prev) =>
                 prev.map((a) =>
                     a.id === activity.id
-                        ? { ...a, waiting_reglement: false, date_reglement: new Date().toISOString(), issue : 'valid' }
+                        ? { ...a, waiting_reglement: false, date_reglement: new Date().toISOString(), issue: 'valid' }
                         : a
                 )
             );
-            
             setTimeout(() => setSuccessId(null), 2000);
         } catch (e: any) {
             showError(e.message || 'Erreur lors de la validation du règlement');
@@ -201,7 +202,6 @@ export default function Bills({office}:props) {
         }
     }
 
-    // ── Annuler le règlement d'un paiement en attente
     async function annulerReglement(activity: Activity) {
         if (validating) return;
         setValidating(activity.id);
@@ -214,11 +214,10 @@ export default function Bills({office}:props) {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || 'Erreur serveur');
 
-            // Mise à jour locale : la carte revient à la normale
             setActivities((prev) =>
                 prev.map((a) =>
                     a.id === activity.id
-                        ? { ...a, waiting_reglement: false, issue : 'canceled'}
+                        ? { ...a, waiting_reglement: false, issue: 'canceled' }
                         : a
                 )
             );
@@ -231,28 +230,74 @@ export default function Bills({office}:props) {
         }
     }
 
+    // ── Supprimer une vente valid : marque issue=deleted + rétablit les stocks produits
+    async function deleteActivity(activity: Activity) {
+        if (!window.confirm(
+            `Supprimer définitivement la vente de "${activity.details.clientName}" ?\n\nLes stocks des produits concernés seront rétablis.`
+        )) return;
+
+        setDeleting(activity.id);
+        try {
+            // 1. Marquer la vente comme supprimée
+            const updateRes = await updateDataInTable(
+                'activity',
+                { issue: 'deleted' },
+                { id: activity.id },
+            );
+            if (updateRes.success === false) throw new Error(updateRes.message || 'Erreur mise à jour vente');
+
+            // 2. Rétablir les stocks pour chaque produit de la vente
+            const prodAlements = activity.details.alements.filter((a) => a.type === 'prod');
+            for (const alement of prodAlements) {
+                // Fetch current stock for this product in this office
+                const stockRes = await fetch(backendUrl + '/crud/getwith/stock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fields: ['id', 'ref_prod_serv_id', 'name', 'office', 'qte'],
+                        constraints: { name: alement.name, office },
+                    }),
+                });
+                const stockData = await stockRes.json();
+                const stockItem = stockData.list?.[0] ?? null;
+
+                if (stockItem) {
+                    const newQte = (stockItem.qte ?? 0) + alement.qty;
+                    await updateDataInTable(
+                        'stock',
+                        { qte: newQte },
+                        { ref_prod_serv_id: stockItem.ref_prod_serv_id },
+                    );
+                }
+            }
+
+            // 3. Update local state
+            setActivities((prev) =>
+                prev.map((a) =>
+                    a.id === activity.id ? { ...a, issue: 'deleted' } : a
+                )
+            );
+        } catch (e: any) {
+            showError(e.message || 'Erreur lors de la suppression de la vente');
+        } finally {
+            setDeleting(null);
+        }
+    }
+
     const filtered = filterActivities(activities, filter);
 
-    const validActivities = filtered.filter(
-    (activity) => activity.issue === "valid"
-    );
+    const validActivities = filtered.filter((activity) => activity.issue === 'valid');
 
-    const totalAmount = validActivities.reduce(
-    (sum, activity) => sum + activity.total_amount,
-    0
-    );
-
-    const totalBenef = validActivities.reduce(
-    (sum, activity) => sum + activity.total_benefice,
-    0
-    );
+    const totalAmount = validActivities.reduce((sum, activity) => sum + activity.total_amount, 0);
+    const totalBenef = validActivities.reduce((sum, activity) => sum + activity.total_benefice, 0);
     const pendingCount = filtered.filter((a) => a.waiting_reglement).length;
+    const deletedCount = filtered.filter((a) => a.issue === 'deleted').length;
 
     return (
         <div data-style="neuro" data-mode="light" className="col align-center justify-start"
-        style={{  height: '100%', overflow: 'hidden'}}>
-        <style>{`
-        .bills-root { width: 100%;  }
+            style={{ height: '100%', overflow: 'hidden' }}>
+            <style>{`
+        .bills-root { width: 100%; }
 
         .filter-pill {
           padding: var(--padding-sm);
@@ -272,7 +317,6 @@ export default function Bills({office}:props) {
         }
         .filter-pill:not(.active):hover { filter: brightness(0.97); }
 
-        /* ── Bill card ── */
         .bill-card {
           background: var(--nm-bg);
           border-radius: var(--radius-2xl);
@@ -287,11 +331,14 @@ export default function Bills({office}:props) {
         .bill-card.pending {
           border-left: 3px solid #ef4444;
         }
+        .bill-card.deleted-card {
+          border-left: 3px solid #9ca3af;
+          opacity: 0.65;
+        }
         .bill-card.success-flash {
           box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light);
         }
 
-        /* ── Avatar ── */
         .avatar {
           width: 44px; height: 44px; border-radius: var(--radius-full); flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -300,8 +347,8 @@ export default function Bills({office}:props) {
           box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light);
         }
         .avatar.pending { color: #ef4444; }
+        .avatar.deleted { color: #9ca3af; }
 
-        /* ── Download button ── */
         .dl-btn {
           width: 40px; height: 40px; border-radius: var(--radius-xl); flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -324,7 +371,25 @@ export default function Bills({office}:props) {
           box-shadow: inset 2px 2px 4px var(--nm-dark), inset -2px -2px 4px var(--nm-light);
         }
 
-        /* ── Validate button ── */
+        /* ── Delete button ── */
+        .delete-btn {
+          width: 40px; height: 40px; border-radius: var(--radius-xl); flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 1rem; cursor: pointer;
+          background: var(--nm-bg);
+          color: #ef4444;
+          box-shadow: 4px 4px 8px var(--nm-dark), -4px -4px 8px var(--nm-light);
+          transition: var(--transition-all);
+        }
+        .delete-btn:hover:not(:disabled) {
+          box-shadow: 5px 5px 10px var(--nm-dark), -5px -5px 10px var(--nm-light);
+        }
+        .delete-btn:active:not(:disabled) {
+          box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light);
+        }
+        .delete-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .delete-btn.loading { animation: pulse 1s ease-in-out infinite; }
+
         .validate-btn {
           display: inline-flex; align-items: center; gap: 0.3rem;
           padding: 0.25rem 0.6rem;
@@ -347,7 +412,6 @@ export default function Bills({office}:props) {
         .validate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .validate-btn.loading { animation: pulse 1s ease-in-out infinite; }
 
-        /* ── cancel button ── */
         .cancel-v-btn {
           display: inline-flex; align-items: center; gap: 0.3rem;
           padding: 0.25rem 0.6rem;
@@ -372,7 +436,6 @@ export default function Bills({office}:props) {
 
         @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
-        /* ── Stat strip ── */
         .stat-strip { display: flex; gap: var(--gap-md); align-items: stretch; }
         .stat-box {
           flex: 1;
@@ -385,8 +448,11 @@ export default function Bills({office}:props) {
           box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light),
                       0 0 0 1.5px #ef4444;
         }
+        .stat-box.deleted-box {
+          box-shadow: inset 3px 3px 6px var(--nm-dark), inset -3px -3px 6px var(--nm-light),
+                      0 0 0 1.5px #9ca3af;
+        }
 
-        /* ── Pill tag ── */
         .pill-tag {
           display: inline-flex; align-items: center;
           padding: 0.15rem 0.5rem;
@@ -396,6 +462,12 @@ export default function Bills({office}:props) {
           background: var(--nm-bg);
           box-shadow: 2px 2px 4px var(--nm-dark), -2px -2px 4px var(--nm-light);
           color: var(--nm-text);
+        }
+
+        /* Deleted pill-tag style */
+        .pill-tag.deleted-tag {
+          text-decoration: line-through;
+          opacity: 0.5;
         }
 
         .empty-zone {
@@ -421,10 +493,8 @@ export default function Bills({office}:props) {
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
 
-        .amount-pending {
-          color: #ef4444;
-          font-weight: var(--weight-semibold);
-        }
+        .amount-pending { color: #ef4444; font-weight: var(--weight-semibold); }
+        .amount-deleted { color: #9ca3af; text-decoration: line-through; font-size: var(--text-sm); }
       `}</style>
 
             <div className="bills-root col gap-lg">
@@ -450,25 +520,33 @@ export default function Bills({office}:props) {
                             <span className="text-label">Factures</span>
                             <span className="text-heading text-xl">{filtered.length}</span>
                         </div>
-                        {user.role === 'superuser' && 
-                        <div className="stat-box">
-                            <span className="text-label">Total</span>
-                            <span className="text-heading text-xl">{formatAmount(totalAmount)}</span>
-                        </div>}
-                        {user.role === 'superuser' && 
-                        <div className="stat-box">
-                            <span className="text-label">Bénéfice</span>
-                            <span className="text-heading text-xl" style={{ color: 'var(--nm-brand)' }}>
-                                {formatAmount(totalBenef)}
-                            </span>
-                        </div>}
-                        
-                        {/* Badge en attente uniquement si > 0 */}
+                        {user.role === 'superuser' && (
+                            <div className="stat-box">
+                                <span className="text-label">Total</span>
+                                <span className="text-heading text-xl">{formatAmount(totalAmount)}</span>
+                            </div>
+                        )}
+                        {user.role === 'superuser' && (
+                            <div className="stat-box">
+                                <span className="text-label">Bénéfice</span>
+                                <span className="text-heading text-xl" style={{ color: 'var(--nm-brand)' }}>
+                                    {formatAmount(totalBenef)}
+                                </span>
+                            </div>
+                        )}
                         {pendingCount > 0 && (
                             <div className="stat-box pending-box">
                                 <span className="text-label" style={{ color: '#ef4444' }}>En attente</span>
                                 <span className="text-heading text-xl" style={{ color: '#ef4444' }}>
                                     {pendingCount}
+                                </span>
+                            </div>
+                        )}
+                        {deletedCount > 0 && (
+                            <div className="stat-box deleted-box">
+                                <span className="text-label" style={{ color: '#9ca3af' }}>Supprimées</span>
+                                <span className="text-heading text-xl" style={{ color: '#9ca3af' }}>
+                                    {deletedCount}
                                 </span>
                             </div>
                         )}
@@ -491,62 +569,87 @@ export default function Bills({office}:props) {
                     <div className="col gap-sm" style={{ width: '100%', height: '300px', overflow: 'auto', padding: '5px' }}>
                         {filtered.map((activity) => {
                             const isDownloading = downloading === activity.id;
+                            const isDeleting = deleting === activity.id;
                             const isValidating = validating === activity.id;
                             const isSuccess = successId === activity.id;
                             const isPending = activity.waiting_reglement;
-                            const isCancel = activity.issue === 'canceled' ? true : false
+                            const isDeleted = activity.issue === 'deleted';
+                            const isCanceled = activity.issue === 'canceled';
 
                             return (
                                 <div
                                     key={activity.id}
-                                    className={`bill-card${isSuccess ? ' success-flash' : ''}${isPending || isCancel ? ' pending' : ''}`}
+                                    className={`bill-card${isSuccess ? ' success-flash' : ''}${isPending || isCanceled ? ' pending' : ''}${isDeleted ? ' deleted-card' : ''}`}
                                     style={{ width: '100%' }}
                                 >
                                     {/* Avatar */}
-                                    <div className={`avatar${isPending || isCancel ? ' pending' : ''}`}>
+                                    <div className={`avatar${isPending || isCanceled ? ' pending' : ''}${isDeleted ? ' deleted' : ''}`}>
                                         {getInitials(activity.details.clientName)}
                                     </div>
 
                                     {/* Info */}
                                     <div className="col" style={{ flex: 1, minWidth: 0, gap: 0 }}>
-                                        <span className="text-heading text-base truncate">{activity.client}</span>
+                                        <span
+                                            className="text-heading text-base truncate"
+                                            style={isDeleted ? { textDecoration: 'line-through', color: '#9ca3af' } : undefined}
+                                        >
+                                            {activity.client}
+                                        </span>
 
                                         <div className="row gap-xs align-center wrap">
                                             <span className="text-label">{formatDate(activity.date)}</span>
 
-                                            {/* Badge paiement — rouge si en attente */}
-                                            <span className={paymentBadgeClass(isPending)}>
-                                                {paymentLabel(isCancel? activity.issue : activity.payment_mode)}
-                                            </span>
+                                            {isDeleted ? (
+                                                <span className="badge" style={{ background: '#f3f4f6', color: '#9ca3af', fontSize: '0.72rem' }}>
+                                                    🗑 Supprimée
+                                                </span>
+                                            ) : isCanceled ? (
+                                                <span className="badge badge-danger" style={{ fontSize: '0.72rem' }}>
+                                                    Annulée
+                                                </span>
+                                            ) : (
+                                                <span className={paymentBadgeClass(isPending)}>
+                                                    {paymentLabel(activity.payment_mode)}
+                                                </span>
+                                            )}
 
-                                            {activity.bill_sent && (
+                                            {activity.bill_sent && !isDeleted && (
                                                 <span className="badge badge-success">Envoyée</span>
                                             )}
                                         </div>
 
-                                        {/* Montant : négatif/rouge si en attente, normal sinon */}
-                                        {user.role === 'superuser' && 
-                                        <div className="row gap-sm align-center">
-                                            {isPending ? (
-                                                <span className="amount-pending">
-                                                    -{formatAmount(activity.total_amount)}
-                                                </span>
-                                            ) : (
-                                                <span className="text-body text-sm weight-semibold">
-                                                    {formatAmount(activity.total_amount)}
-                                                </span>
-                                            )}
-                                            {!isPending && (
-                                                <span className="text-label" style={{ color: 'var(--nm-brand)' }}>
-                                                    +{formatAmount(activity.total_benefice)}
-                                                </span>
-                                            )}
-                                        </div>}
+                                        {/* Montant */}
+                                        {user.role === 'superuser' && (
+                                            <div className="row gap-sm align-center">
+                                                {isDeleted ? (
+                                                    <span className="amount-deleted">
+                                                        {formatAmount(activity.total_amount)}
+                                                    </span>
+                                                ) : isPending ? (
+                                                    <span className="amount-pending">
+                                                        -{formatAmount(activity.total_amount)}
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <span className="text-body text-sm weight-semibold">
+                                                            {formatAmount(activity.total_amount)}
+                                                        </span>
+                                                        <span className="text-label" style={{ color: 'var(--nm-brand)' }}>
+                                                            +{formatAmount(activity.total_benefice)}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Articles */}
                                         <div className="row gap-xs wrap">
                                             {activity.details.alements.slice(0, 3).map((a, i) => (
-                                                <span key={i} className="pill-tag truncate" style={{ maxWidth: '8rem' }}>
+                                                <span
+                                                    key={i}
+                                                    className={`pill-tag truncate${isDeleted ? ' deleted-tag' : ''}`}
+                                                    style={{ maxWidth: '8rem' }}
+                                                >
                                                     {a.name}
                                                 </span>
                                             ))}
@@ -557,8 +660,15 @@ export default function Bills({office}:props) {
                                             )}
                                         </div>
 
-                                        {/* Bouton valider le règlement */}
-                                        {isPending && (
+                                        {/* Deleted notice */}
+                                        {isDeleted && (
+                                            <p style={{ fontSize: '0.7rem', color: '#9ca3af', margin: '0.2rem 0 0' }}>
+                                                Stocks rétablis — vente annulée
+                                            </p>
+                                        )}
+
+                                        {/* Boutons règlement (pending uniquement) */}
+                                        {isPending && !isDeleted && (
                                             <div style={{ marginTop: '0.35rem' }}>
                                                 <button
                                                     className={`validate-btn${isValidating ? ' loading' : ''}`}
@@ -578,23 +688,38 @@ export default function Bills({office}:props) {
                                             </div>
                                         )}
 
-                                        {/* Date de règlement si déjà réglé et paiement différé */}
-                                        {!isPending && isPendingMode(activity.payment_mode) && activity.date_reglement && (
+                                        {/* Date de règlement */}
+                                        {!isPending && isPendingMode(activity.payment_mode) && activity.date_reglement && !isDeleted && (
                                             <span className="text-label" style={{ fontSize: '0.65rem', color: '#16a34a', marginTop: '0.2rem' }}>
                                                 ✓ Réglé le {formatDate(activity.date_reglement)}
                                             </span>
                                         )}
                                     </div>
 
-                                    {/* Download button */}
-                                    <button
-                                        className={`dl-btn${isDownloading ? ' loading' : ''}`}
-                                        disabled={!!downloading}
-                                        onClick={() => downloadBill(activity)}
-                                        title="Télécharger la facture"
-                                    >
-                                        {isSuccess ? '✓' : isDownloading ? '⏳' : '↓'}
-                                    </button>
+                                    {/* Actions: Download + Delete */}
+                                    <div className="col gap-xs align-center" style={{ flexShrink: 0 }}>
+                                        {/* Download */}
+                                        <button
+                                            className={`dl-btn${isDownloading ? ' loading' : ''}`}
+                                            disabled={!!downloading || isDeleted}
+                                            onClick={() => downloadBill(activity)}
+                                            title={isDeleted ? 'Vente supprimée' : 'Télécharger la facture'}
+                                        >
+                                            {isSuccess ? '✓' : isDownloading ? '⏳' : '↓'}
+                                        </button>
+
+                                        {/* Delete — visible uniquement pour valid, owners/superusers */}
+                                        {canDelete && activity.issue === 'valid' && (
+                                            <button
+                                                className={`delete-btn${isDeleting ? ' loading' : ''}`}
+                                                disabled={!!deleting}
+                                                onClick={() => deleteActivity(activity)}
+                                                title="Supprimer la vente et rétablir les stocks"
+                                            >
+                                                {isDeleting ? '⏳' : '🗑'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })}

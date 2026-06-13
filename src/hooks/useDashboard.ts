@@ -17,8 +17,8 @@ import type {
 // CONFIG
 // ─────────────────────────────────────────────────────────────────
 
-//const API_BASE = 'https://backend-nana-v2-production.up.railway.app/api';
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://backend-nana-v2-production.up.railway.app/api';
+//const API_BASE = 'http://localhost:3000/api';
 
 // ─────────────────────────────────────────────────────────────────
 // HELPERS

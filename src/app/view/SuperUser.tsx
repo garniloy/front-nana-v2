@@ -211,6 +211,56 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useImmer } from 'use-immer';
 
+const SUDO_RESPONSIVE_STYLES = `
+  .office-manager {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    padding: 1rem;
+    align-items: flex-start;
+  }
+ 
+  @media (max-width: 900px) {
+    .office-manager {
+      flex-direction: column;
+    }
+    .office-panel,
+    .manager-panel {
+      flex: 1 1 100% !important;
+      width: 100%;
+    }
+  }
+ 
+  @media (max-width: 480px) {
+    .office-manager {
+      padding: 0.6rem;
+      gap: 0.85rem;
+    }
+ 
+    .office-list .row,
+    .manager-list .row {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+ 
+    .office-panel > .row,
+    .manager-panel > .row {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+ 
+    .office-panel .btn.w-full,
+    .manager-panel .btn.w-full {
+      font-size: 0.85rem;
+    }
+ 
+    .manager-list .surface-inset > .row {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  }
+`;
+
 
 // main function
 export default function sudo(){
@@ -795,6 +845,7 @@ export default function sudo(){
             data-mode="light"
             
         >
+            <style>{SUDO_RESPONSIVE_STYLES}</style>
             {/* GLOBAL LOADING */}
             {isLoading.global && (
                 <div className="row align-center justify-center gap-sm p-md">
@@ -814,7 +865,7 @@ export default function sudo(){
 
             {/* ── OFFICE-MANAGER VIEW ── */}
             {handleView('office-manager') && (
-                <div className=" office-manager">
+                <div className="office-manager" style={{ overflow: 'auto' }}>
 
                     {/* OFFICES PANEL */}
                     <div className="office-panel surface col gap-md" style={{ flex: '1 1 18rem' }}>
